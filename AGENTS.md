@@ -31,6 +31,7 @@
 ## 文档入口
 
 - `PROJECT_OVERVIEW_AND_STATUS.md`：项目功能、当前线上状态、待处理事项。
+- `PROJECT_ANALYSIS_AND_AI_BRANCH_REPORT_20260611.md`：项目整体分析、新 AI/数据分析功能分支规划和 Gitee 同步建议。
 - `DEVELOPMENT_HANDOVER_20260603.md`：本次审核版重写的交接记录。
 - `DEPLOYMENT_AND_TROUBLESHOOTING.md`：部署、灰度、切换、回滚和网络/TLS 排错手册。
 - `API.md`：后端公开接口、后台接口和诊断接口。
@@ -45,6 +46,16 @@
 - 正式 HTTPS 通道已验证后台可控制分类和内容：当前公开接口返回 7 个启用分类、7 条已发布好物内容。
 - 正式小程序必须使用 HTTPS 合法域名，不允许使用 IP 或 HTTP。
 - 上传体验版前仍必须确认微信公众平台的 request 合法域名包含 `https://zanzanai.top`，downloadFile 合法域名包含腾讯 COS 域名。
+- 2026-06-11 已从稳定 `main` 创建新功能分支 `codex/ai-analytics-entry`，用于隔离开发“小程序大模型入口、后台模型管理、数据分析”能力；`main` 继续作为审核稳定基线。
+- Gitee 同名地址 `https://gitee.com/BMIHuangchen/good-items-assistant.git` 当前返回 404。同步到 Gitee 前需要先确认或创建目标 Gitee 空仓库，再添加 `gitee` 远端并推送 `main`、标签和功能分支。
+
+## 新功能分支边界
+
+- 大模型能力应定位为“内容助手与数据洞察”，围绕已发布好物内容进行问答、查找、整理和运营分析，不做开放式陪聊、交易导购、价格比较、支付下单或高风险专业建议。
+- 大模型密钥、供应商地址、模型名和开关必须通过环境变量或后台安全配置管理，禁止写入前端、小程序代码、`application.yaml` 默认明文或 Git 历史。
+- 大模型后端建议拆独立 controller/service/repository，不继续把所有新增逻辑堆入 `ContentRepository`。
+- 数据分析先使用 MySQL 行为事件表、AI 调用日志和后台 ECharts 聚合看板；访问规模不足前不引入复杂大数据平台。
+- 小程序 AI 入口上线前必须可由后台总开关关闭，并完成合法域名、隐私说明、内容安全和微信审核表达检查。
 
 ## 标准化开发流程
 
