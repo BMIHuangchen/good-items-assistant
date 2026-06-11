@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: good-items-assistant-api
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/good_items_assistant?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:good_items}
+    password: ${DB_PASSWORD:change-me}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      connection-timeout: 5000
+      validation-timeout: 3000
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  tomcat:
+    connection-timeout: 10s
+    keep-alive-timeout: 20s
+    max-keep-alive-requests: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  public-base-url: ${PUBLIC_BASE_URL:https://zanzanai.top}
+  admin-username: ${ADMIN_USERNAME:admin}
+  admin-password: ${ADMIN_PASSWORD:change-me-now}
+  jwt-secret: ${JWT_SECRET:replace-this-with-a-strong-secret-at-least-32-chars}
+  cos:
+    base-url: ${COS_BASE_URL:https://ai-file-1409230880.cos.ap-guangzhou.myqcloud.com}
+    bucket: ${COS_BUCKET:ai-file-1409230880}
+    region: ${COS_REGION:ap-guangzhou}
+  diagnostics:
+    slow-request-ms: ${SLOW_REQUEST_MS:1200}
+
+logging:
+  level:
+    com.gooditems: info

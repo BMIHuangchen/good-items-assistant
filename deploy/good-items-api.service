@@ -1,0 +1,24 @@
+[Unit]
+Description=Good Items Assistant API
+After=network.target mysql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/good-items/api
+ExecStart=/usr/bin/java -jar /opt/good-items/api/good-items-assistant-api.jar
+Restart=always
+RestartSec=5
+Environment=SERVER_PORT=8080
+Environment=PUBLIC_BASE_URL=https://zanzanai.top
+Environment=DB_URL=jdbc:mysql://127.0.0.1:3306/good_items_assistant?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+Environment=DB_USERNAME=good_items
+Environment=DB_PASSWORD=change-me
+Environment=ADMIN_USERNAME=admin
+Environment=ADMIN_PASSWORD=change-me-now
+Environment=JWT_SECRET=replace-this-with-a-strong-secret-at-least-32-chars
+Environment=COS_BASE_URL=https://ai-file-1409230880.cos.ap-guangzhou.myqcloud.com
+Environment=COS_BUCKET=ai-file-1409230880
+Environment=COS_REGION=ap-guangzhou
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,27 @@
+图片文件说明
+================
+
+当前审核版的小程序图片统一使用腾讯 COS：
+https://ai-file-1409230880.cos.ap-guangzhou.myqcloud.com
+
+本地 static/images 目录只作为开发说明和极端离线占位，不作为正式内容源。
+
+推荐 COS 路径：
+- good-items/banners/：首页 Banner 图
+- good-items/categories/：分类封面图
+- good-items/items/：好物内容封面和详情图
+
+命名建议：
+- daily-finds.jpg
+- storage-ideas.jpg
+- tissue-box-cover.jpg
+- tissue-box-1.jpg
+- notebook-cover.jpg
+- notebook-1.jpg
+- desk-organizer-cover.jpg
+- desk-organizer-1.jpg
+
+注意：
+1. 图片格式可以是 jpg、jpeg、png 或 webp。
+2. 正式小程序必须在微信公众平台配置 downloadFile 合法域名。
+3. 不要使用 product、cart、order、payment 等旧电商命名。

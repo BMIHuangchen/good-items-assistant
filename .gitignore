@@ -1,0 +1,68 @@
+# 好物展示小助手 - Git 忽略文件
+
+# 操作系统与编辑器
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+
+# Java 后端
+java-code/target/
+java-code/build/
+java-code/*.class
+java-code/*.jar
+java-code/*.war
+java-code/*.ear
+java-code/.mvn/
+java-code/mvnw
+java-code/mvnw.cmd
+java-code/*.log
+java-code/logs/
+java-code/uploads/*
+!java-code/uploads/.gitkeep
+
+# 前端依赖与构建产物
+web-code/node_modules/
+web-code/.pnpm-store/
+web-code/dist/
+web-code/dist-ssr/
+web-code/*.local
+web-code/npm-debug.log*
+web-code/yarn-debug.log*
+web-code/yarn-error.log*
+web-code/pnpm-debug.log*
+web-code/coverage/
+web-code/.eslintcache
+web-code/.stylelintcache
+
+# 临时文件与缓存
+*.tmp
+*.temp
+.cache/
+
+# 环境变量与敏感配置
+.env.local
+.env.*.local
+.codex-ssh/
+cos-upload-assets/
+
+# 本地数据库文件。注意：database/*.sql 是项目结构脚本，需要纳入版本管理。
+*.sqlite
+*.sqlite3
+
+# 旧原型/旧设计目录，仅保留本地，不进入新项目主线。
+High-Fidelity E-Commerce App/
+ui-figma/
+
+# 备份文件
+*.bak
+*.backup
