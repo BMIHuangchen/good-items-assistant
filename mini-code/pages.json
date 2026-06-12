@@ -37,6 +37,12 @@
       "style": {
         "navigationBarTitleText": "我的"
       }
+    },
+    {
+      "path": "pages/ai-image/ai-image",
+      "style": {
+        "navigationBarTitleText": "AI 图片分析"
+      }
     }
   ],
   "globalStyle": {

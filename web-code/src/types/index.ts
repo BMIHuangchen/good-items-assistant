@@ -68,3 +68,70 @@ export interface ApiResponse<T> {
   data: T
   requestId: string
 }
+
+export interface AiFeatureSettings {
+  id: number
+  aiEnabled: boolean
+  autoIngestEnabled: boolean
+  autoPublishEnabled: boolean
+  lowConfidenceReviewEnabled: boolean
+  confidenceThreshold: number
+  dailyCallLimit: number
+  maxImageSizeMb: number
+}
+
+export interface AiModelConfig {
+  id: number
+  providerCode: string
+  displayName: string
+  modelName: string
+  baseUrl: string
+  apiKeyEnv: string
+  enabled: boolean
+  promptPricePer1k: number
+  completionPricePer1k: number
+  sortOrder: number
+}
+
+export interface AiImageAnalysisTask {
+  id: number
+  requestId: string
+  mediaAssetId: number
+  mediaUrl: string
+  providerCode: string
+  modelName: string
+  status: string
+  ingestMode: string
+  itemTitle: string
+  summary: string
+  experience: string
+  tags: string[]
+  decision: string
+  matchedCategoryId?: number
+  matchedCategoryName?: string
+  newCategoryName?: string
+  newCategorySlug?: string
+  newCategoryDescription?: string
+  confidence: number
+  reason: string
+  reviewReason?: string
+  createdCategoryId?: number
+  createdItemId?: number
+}
+
+export interface AiCallLog {
+  id: number
+  requestId: string
+  providerCode: string
+  modelName: string
+  scenario: string
+  status: string
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  estimatedCost: number
+  durationMs: number
+  errorMessage?: string
+  taskId?: number
+  createdAt: string
+}

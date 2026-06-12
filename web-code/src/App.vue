@@ -120,6 +120,68 @@
         </div>
       </template>
 
+      <template v-if="activeTab === 'aiSettings'">
+        <div class="panel">
+          <el-alert title="AI Key 不在后台保存，只读取服务器环境变量。开启自动入库前建议先保持自动发布关闭。" type="warning" :closable="false" />
+          <el-form :model="aiSettingsForm" label-position="top" style="margin-top: 16px; max-width: 760px">
+            <el-form-item label="AI 功能总开关"><el-switch v-model="aiSettingsForm.aiEnabled" /></el-form-item>
+            <el-form-item label="自动入库"><el-switch v-model="aiSettingsForm.autoIngestEnabled" /></el-form-item>
+            <el-form-item label="自动发布"><el-switch v-model="aiSettingsForm.autoPublishEnabled" /></el-form-item>
+            <el-form-item label="低置信度转人工"><el-switch v-model="aiSettingsForm.lowConfidenceReviewEnabled" /></el-form-item>
+            <el-form-item label="自动入库置信度阈值"><el-input-number v-model="aiSettingsForm.confidenceThreshold" :min="0" :max="1" :step="0.05" /></el-form-item>
+            <el-form-item label="每日调用上限"><el-input-number v-model="aiSettingsForm.dailyCallLimit" :min="1" :max="1000" /></el-form-item>
+            <el-form-item label="单图大小限制 MB"><el-input-number v-model="aiSettingsForm.maxImageSizeMb" :min="1" :max="10" /></el-form-item>
+            <el-button type="primary" @click="saveAiSettings">保存 AI 开关</el-button>
+          </el-form>
+        </div>
+        <div class="panel" style="margin-top: 16px">
+          <el-table :data="aiModels">
+            <el-table-column prop="displayName" label="模型" width="150" />
+            <el-table-column prop="providerCode" label="标识" width="100" />
+            <el-table-column prop="modelName" label="模型名" min-width="210" />
+            <el-table-column prop="apiKeyEnv" label="Key 环境变量" width="150" />
+            <el-table-column prop="enabled" label="启用" width="90" />
+            <el-table-column label="操作" width="100">
+              <template #default="{ row }"><el-button link type="primary" @click="openAiModel(row)">编辑</el-button></template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </template>
+
+      <template v-if="activeTab === 'aiTasks'">
+        <div class="panel">
+          <el-button type="primary" @click="loadAiData">刷新 AI 任务</el-button>
+          <el-table :data="aiTasks" style="margin-top: 12px">
+            <el-table-column label="图片" width="88">
+              <template #default="{ row }"><img class="cover" :src="row.mediaUrl" /></template>
+            </el-table-column>
+            <el-table-column prop="itemTitle" label="AI 标题" min-width="160" />
+            <el-table-column prop="providerCode" label="模型" width="90" />
+            <el-table-column prop="status" label="状态" width="130" />
+            <el-table-column prop="matchedCategoryName" label="推荐分类" width="130" />
+            <el-table-column prop="newCategoryName" label="新增分类" width="130" />
+            <el-table-column prop="confidence" label="置信度" width="100" />
+            <el-table-column label="操作" width="160">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="openAiTask(row)">确认</el-button>
+                <el-button link type="danger" @click="rejectAiTask(row.id)">驳回</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <div class="panel" style="margin-top: 16px">
+          <el-table :data="aiCallLogs">
+            <el-table-column prop="createdAt" label="时间" width="180" />
+            <el-table-column prop="providerCode" label="模型" width="90" />
+            <el-table-column prop="status" label="状态" width="90" />
+            <el-table-column prop="totalTokens" label="Token" width="90" />
+            <el-table-column prop="estimatedCost" label="估算费用" width="110" />
+            <el-table-column prop="durationMs" label="耗时 ms" width="100" />
+            <el-table-column prop="errorMessage" label="错误" />
+          </el-table>
+        </div>
+      </template>
+
       <template v-if="activeTab === 'diagnostics'">
         <div class="panel">
           <el-button type="primary" :loading="loading" @click="checkReady">运行在线一致性检查</el-button>
@@ -173,13 +235,46 @@
     </el-form>
     <template #footer><el-button type="primary" @click="saveBanner">保存</el-button></template>
   </el-dialog>
+
+  <el-dialog v-model="aiModelDialog" title="AI 模型配置" width="680px">
+    <el-form :model="aiModelForm" label-position="top">
+      <el-form-item label="显示名称"><el-input v-model="aiModelForm.displayName" /></el-form-item>
+      <el-form-item label="模型名"><el-input v-model="aiModelForm.modelName" /></el-form-item>
+      <el-form-item label="Base URL"><el-input v-model="aiModelForm.baseUrl" /></el-form-item>
+      <el-form-item label="API Key 环境变量名"><el-input v-model="aiModelForm.apiKeyEnv" /></el-form-item>
+      <el-form-item label="启用"><el-switch v-model="aiModelForm.enabled" /></el-form-item>
+      <el-form-item label="输入单价/千 token"><el-input-number v-model="aiModelForm.promptPricePer1k" :min="0" :step="0.001" /></el-form-item>
+      <el-form-item label="输出单价/千 token"><el-input-number v-model="aiModelForm.completionPricePer1k" :min="0" :step="0.001" /></el-form-item>
+    </el-form>
+    <template #footer><el-button type="primary" @click="saveAiModel">保存模型</el-button></template>
+  </el-dialog>
+
+  <el-dialog v-model="aiTaskDialog" title="确认 AI 图片分析" width="760px">
+    <el-form :model="aiTaskForm" label-position="top">
+      <img v-if="selectedAiTask?.mediaUrl" class="preview" :src="selectedAiTask.mediaUrl" />
+      <el-form-item label="使用现有分类">
+        <el-select v-model="aiTaskForm.categoryId" style="width: 100%" :disabled="aiTaskForm.createNewCategory">
+          <el-option v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="新建分类"><el-switch v-model="aiTaskForm.createNewCategory" /></el-form-item>
+      <el-form-item v-if="aiTaskForm.createNewCategory" label="新分类名称"><el-input v-model="aiTaskForm.newCategoryName" /></el-form-item>
+      <el-form-item label="标题"><el-input v-model="aiTaskForm.itemTitle" /></el-form-item>
+      <el-form-item label="摘要"><el-input v-model="aiTaskForm.summary" /></el-form-item>
+      <el-form-item label="体验心得"><el-input v-model="aiTaskForm.experience" type="textarea" :rows="4" /></el-form-item>
+      <el-form-item label="标签，逗号分隔"><el-input v-model="aiTaskTagText" /></el-form-item>
+      <el-form-item label="确认后直接发布"><el-switch v-model="aiTaskForm.publish" /></el-form-item>
+      <el-alert v-if="selectedAiTask?.reviewReason" :title="selectedAiTask.reviewReason" type="warning" :closable="false" />
+    </el-form>
+    <template #footer><el-button type="primary" @click="confirmAiTask">确认入库</el-button></template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '@/api'
-import type { Banner, Category, DashboardStats, GoodItem, MiniProgramConfig } from '@/types'
+import type { AiCallLog, AiFeatureSettings, AiImageAnalysisTask, AiModelConfig, Banner, Category, DashboardStats, GoodItem, MiniProgramConfig } from '@/types'
 
 const token = ref(localStorage.getItem('token') || '')
 const activeTab = ref('dashboard')
@@ -191,6 +286,10 @@ const categories = ref<Category[]>([])
 const banners = ref<Banner[]>([])
 const miniConfig = ref<MiniProgramConfig | null>(null)
 const diagnosticsText = ref('尚未运行检查')
+const aiSettings = ref<AiFeatureSettings | null>(null)
+const aiModels = ref<AiModelConfig[]>([])
+const aiTasks = ref<AiImageAnalysisTask[]>([])
+const aiCallLogs = ref<AiCallLog[]>([])
 
 const itemDialog = ref(false)
 const categoryDialog = ref(false)
@@ -199,6 +298,13 @@ const itemForm = reactive<Partial<GoodItem>>({})
 const categoryForm = reactive<Partial<Category>>({})
 const bannerForm = reactive<Partial<Banner>>({})
 const miniConfigForm = reactive<Partial<MiniProgramConfig>>({})
+const aiSettingsForm = reactive<Partial<AiFeatureSettings>>({})
+const aiModelDialog = ref(false)
+const aiModelForm = reactive<Partial<AiModelConfig>>({})
+const aiTaskDialog = ref(false)
+const selectedAiTask = ref<AiImageAnalysisTask | null>(null)
+const aiTaskForm = reactive<Record<string, any>>({})
+const aiTaskTagText = ref('')
 const tagText = ref('')
 const hotWordText = ref('')
 const galleryText = ref('')
@@ -209,6 +315,8 @@ const navItems = [
   { key: 'categories', label: '分类', icon: 'Grid' },
   { key: 'banners', label: 'Banner', icon: 'Picture' },
   { key: 'miniConfig', label: '小程序页面', icon: 'EditPen' },
+  { key: 'aiSettings', label: 'AI 设置', icon: 'Setting' },
+  { key: 'aiTasks', label: 'AI 图片分析', icon: 'Camera' },
   { key: 'diagnostics', label: '上线诊断', icon: 'Monitor' },
 ]
 
@@ -263,6 +371,7 @@ async function loadAll() {
   miniConfig.value = config
   Object.assign(miniConfigForm, config)
   hotWordText.value = config.hotWords?.join(',') || ''
+  await loadAiData()
 }
 
 function openItem(row?: GoodItem) {
@@ -328,6 +437,73 @@ async function checkReady() {
   } finally {
     loading.value = false
   }
+}
+
+async function loadAiData() {
+  const [settings, models, tasks, logs] = await Promise.all([
+    api.aiSettings(),
+    api.aiModels(),
+    api.aiImageTasks({ pageSize: 80 }),
+    api.aiCallLogs({ pageSize: 80 }),
+  ])
+  aiSettings.value = settings
+  Object.assign(aiSettingsForm, settings)
+  aiModels.value = models
+  aiTasks.value = tasks
+  aiCallLogs.value = logs
+}
+
+async function saveAiSettings() {
+  await api.updateAiSettings(aiSettingsForm)
+  ElMessage.success('AI 设置已保存')
+  await loadAiData()
+}
+
+function openAiModel(row: AiModelConfig) {
+  Object.assign(aiModelForm, row)
+  aiModelDialog.value = true
+}
+
+async function saveAiModel() {
+  if (!aiModelForm.id) return
+  await api.updateAiModel(aiModelForm.id, aiModelForm)
+  ElMessage.success('AI 模型配置已保存')
+  aiModelDialog.value = false
+  await loadAiData()
+}
+
+function openAiTask(row: AiImageAnalysisTask) {
+  selectedAiTask.value = row
+  Object.assign(aiTaskForm, {
+    categoryId: row.matchedCategoryId || categories.value[0]?.id,
+    createNewCategory: row.decision === 'NEW_CATEGORY',
+    newCategoryName: row.newCategoryName,
+    newCategorySlug: row.newCategorySlug,
+    newCategoryDescription: row.newCategoryDescription,
+    itemTitle: row.itemTitle,
+    summary: row.summary,
+    experience: row.experience,
+    publish: false,
+  })
+  aiTaskTagText.value = row.tags?.join(',') || ''
+  aiTaskDialog.value = true
+}
+
+async function confirmAiTask() {
+  if (!selectedAiTask.value) return
+  await api.confirmAiImageTask(selectedAiTask.value.id, {
+    ...aiTaskForm,
+    tags: aiTaskTagText.value.split(',').map((item) => item.trim()).filter(Boolean),
+  })
+  ElMessage.success('AI 分析结果已入库')
+  aiTaskDialog.value = false
+  await loadAll()
+}
+
+async function rejectAiTask(id: number) {
+  await api.rejectAiImageTask(id, '后台驳回')
+  ElMessage.success('已驳回')
+  await loadAiData()
 }
 
 onMounted(loadAll)

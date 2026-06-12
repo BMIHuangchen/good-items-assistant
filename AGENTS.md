@@ -32,6 +32,7 @@
 
 - `PROJECT_OVERVIEW_AND_STATUS.md`：项目功能、当前线上状态、待处理事项。
 - `PROJECT_ANALYSIS_AND_AI_BRANCH_REPORT_20260611.md`：项目整体分析、新 AI/数据分析功能分支规划和 Gitee 同步建议。
+- `AI_MODEL_SETUP_GUIDE.md`：Kimi、豆包、COS 写入密钥、后台开关和上线验证配置说明。
 - `DEVELOPMENT_HANDOVER_20260603.md`：本次审核版重写的交接记录。
 - `DEPLOYMENT_AND_TROUBLESHOOTING.md`：部署、灰度、切换、回滚和网络/TLS 排错手册。
 - `API.md`：后端公开接口、后台接口和诊断接口。
@@ -56,6 +57,10 @@
 - 大模型后端建议拆独立 controller/service/repository，不继续把所有新增逻辑堆入 `ContentRepository`。
 - 数据分析先使用 MySQL 行为事件表、AI 调用日志和后台 ECharts 聚合看板；访问规模不足前不引入复杂大数据平台。
 - 小程序 AI 入口上线前必须可由后台总开关关闭，并完成合法域名、隐私说明、内容安全和微信审核表达检查。
+- 2026-06-13 AI 图片分析功能采用“小程序上传图片 + 后端调用 Kimi/豆包 + 后台开关控制自动入库/人工确认”的设计。默认 AI 总开关、自动入库、自动发布均关闭。
+- AI 图片文件应上传到腾讯 COS，数据库只保存图片 URL、objectKey、大小、hash、任务和调用日志；不得把原图二进制直接存入 MySQL。
+- AI 自动入库和自动发布必须拆成两个独立开关：自动入库可创建草稿，自动发布才允许小程序公开展示。
+- Kimi、豆包和 COS 写入密钥必须通过服务器环境变量注入：`KIMI_API_KEY`、`DOUBAO_API_KEY`、`COS_SECRET_ID`、`COS_SECRET_KEY`。禁止写入前端、小程序、默认配置明文或 Git 历史。
 
 ## 标准化开发流程
 

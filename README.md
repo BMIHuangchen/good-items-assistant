@@ -11,6 +11,7 @@
 - `DEPLOYMENT_AND_TROUBLESHOOTING.md`：部署、灰度、切换、回滚和网络/TLS 排错。
 - `API.md`：接口文档。
 - `AGENTS.md`：长期项目规则和安全约束。
+- `AI_MODEL_SETUP_GUIDE.md`：Kimi、豆包、COS 写入密钥和后台 AI 开关配置说明。
 
 ## 当前能力
 
@@ -21,6 +22,7 @@
 - 部署：`deploy/nginx-good-items.conf` 提供 HTTPS、反代、超时和 requestId 透传建议。
 - 服务：`deploy/good-items-api.service` 是 systemd 模板，部署前必须替换其中的生产环境变量。
 - 脚本：`deploy/deploy-linux.sh` 可发布 jar 和后台静态文件，`deploy/server-smoke-test.sh` 可在服务器本机检查 API。
+- AI 分支能力：小程序可上传图片并选择 Kimi/豆包分析；后台可控制 AI 总开关、自动入库、自动发布、模型启用、任务确认和调用费用日志。
 
 ## 上线原则
 
