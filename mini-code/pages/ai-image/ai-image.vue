@@ -2,7 +2,7 @@
   <view class="page">
     <view class="panel">
       <text class="title">AI 图片分析</text>
-      <text class="desc">选择模型并上传一张生活好物图片，分析结果会进入后台确认或按后台开关自动入库。</text>
+      <text class="desc">选择模型并上传一张生活好物图片，分析通常需要 20-60 秒，结果会进入后台确认或按后台开关自动入库。</text>
     </view>
 
     <view class="panel">

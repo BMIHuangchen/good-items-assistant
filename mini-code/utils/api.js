@@ -142,7 +142,7 @@ export function upload(path, filePath, formData = {}) {
       filePath,
       name: 'file',
       formData,
-      timeout: 30000,
+      timeout: 120000,
       header: { 'X-Request-Id': requestId },
       success(res) {
         let body = {}
