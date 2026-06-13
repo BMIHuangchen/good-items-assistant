@@ -201,7 +201,7 @@
       <el-form-item label="标题"><el-input v-model="itemForm.title" /></el-form-item>
       <el-form-item label="分类">
         <el-select v-model="itemForm.categoryId" style="width: 100%">
-          <el-option v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
+          <el-option v-for="category in categories" :key="category.id" :label="categoryLabel(category)" :value="category.id" />
         </el-select>
       </el-form-item>
       <el-form-item label="摘要"><el-input v-model="itemForm.summary" /></el-form-item>
@@ -259,7 +259,7 @@
       <img v-if="selectedAiTask?.mediaUrl" class="preview" :src="selectedAiTask.mediaUrl" />
       <el-form-item label="使用现有分类">
         <el-select v-model="aiTaskForm.categoryId" style="width: 100%" :disabled="aiTaskForm.createNewCategory">
-          <el-option v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
+          <el-option v-for="category in categories" :key="category.id" :label="categoryLabel(category)" :value="category.id" />
         </el-select>
       </el-form-item>
       <el-form-item label="新建分类"><el-switch v-model="aiTaskForm.createNewCategory" /></el-form-item>
@@ -344,6 +344,10 @@ const metrics = computed(() => [
   { label: '浏览', value: stats.value.totalViews },
   { label: '收藏', value: stats.value.totalFavorites },
 ])
+
+function categoryLabel(category: Category) {
+  return category.enabled ? category.name : `${category.name}（未启用）`
+}
 
 async function handleLogin() {
   loading.value = true
