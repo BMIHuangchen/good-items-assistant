@@ -163,8 +163,13 @@
             <el-table-column prop="confidence" label="置信度" width="100" />
             <el-table-column label="操作" width="160">
               <template #default="{ row }">
-                <el-button link type="primary" @click="openAiTask(row)">确认</el-button>
-                <el-button link type="danger" @click="rejectAiTask(row.id)">驳回</el-button>
+                <template v-if="row.status === 'PENDING_REVIEW'">
+                  <el-button link type="primary" @click="openAiTask(row)">确认</el-button>
+                  <el-button link type="danger" @click="rejectAiTask(row.id)">驳回</el-button>
+                </template>
+                <el-tag v-else-if="row.status === 'CONFIRMED'" type="success">已入库</el-tag>
+                <el-tag v-else-if="row.status === 'REJECTED'" type="info">已驳回</el-tag>
+                <el-tag v-else type="info">{{ row.status }}</el-tag>
               </template>
             </el-table-column>
           </el-table>
@@ -266,7 +271,9 @@
       <el-form-item label="确认后直接发布"><el-switch v-model="aiTaskForm.publish" /></el-form-item>
       <el-alert v-if="selectedAiTask?.reviewReason" :title="selectedAiTask.reviewReason" type="warning" :closable="false" />
     </el-form>
-    <template #footer><el-button type="primary" @click="confirmAiTask">确认入库</el-button></template>
+    <template #footer>
+      <el-button type="primary" :disabled="selectedAiTask?.status !== 'PENDING_REVIEW'" @click="confirmAiTask">确认入库</el-button>
+    </template>
   </el-dialog>
 </template>
 
