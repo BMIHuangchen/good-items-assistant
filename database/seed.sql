@@ -84,7 +84,7 @@ insert into ai_model_configs(
   prompt_price_per_1k, completion_price_per_1k, sort_order
 ) values
 ('kimi', 'Kimi 视觉模型', 'moonshot-v1-8k-vision-preview', 'https://api.moonshot.cn/v1', 'KIMI_API_KEY', 0, 0, 0, 100),
-('doubao', '豆包视觉模型', 'doubao-1-5-vision-pro-32k', 'https://ark.cn-beijing.volces.com/api/v3', 'DOUBAO_API_KEY', 0, 0, 0, 90)
+('doubao', '豆包视觉模型', 'ep-20260613113847-hcvjp', 'https://ark.cn-beijing.volces.com/api/v3', 'DOUBAO_API_KEY', 0, 0, 0, 90)
 on duplicate key update
   display_name = values(display_name),
   model_name = values(model_name),
