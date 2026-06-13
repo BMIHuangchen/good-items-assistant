@@ -68,10 +68,16 @@ DOUBAO_API_KEY=你的火山方舟 API Key
 ```text
 providerCode: doubao
 displayName: 豆包视觉模型
-modelName: 以火山方舟控制台实际开通的模型名为准
+modelName: 以火山方舟“API 接入”示例代码里的 model 值为准，例如 ep-xxxx
 baseUrl: https://ark.cn-beijing.volces.com/api/v3
 apiKeyEnv: DOUBAO_API_KEY
 ```
+
+注意：
+- 豆包图片理解接入点使用火山方舟 Responses API：`POST /responses`。
+- 后台 `modelName` 不要凭截图手打，应复制“API 接入”示例代码中的 `model="..."`。
+- `seedream` 是图片生成模型，不适合当前“上传图片 -> 识别物品 -> 分类建议”的图片理解流程。
+- 如果返回 `only support text messages`，说明接入点不是视觉理解模型；如果返回 `InvalidEndpointOrModel.NotFound`，优先检查 model 是否复制完整、API Key 是否和接入点属于同一项目且有权限。
 
 ## 腾讯 COS 写入配置步骤
 

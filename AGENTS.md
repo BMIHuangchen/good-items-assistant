@@ -61,6 +61,7 @@
 - AI 图片文件应上传到腾讯 COS，数据库只保存图片 URL、objectKey、大小、hash、任务和调用日志；不得把原图二进制直接存入 MySQL。
 - AI 自动入库和自动发布必须拆成两个独立开关：自动入库可创建草稿，自动发布才允许小程序公开展示。
 - Kimi、豆包和 COS 写入密钥必须通过服务器环境变量注入：`KIMI_API_KEY`、`DOUBAO_API_KEY`、`COS_SECRET_ID`、`COS_SECRET_KEY`。禁止写入前端、小程序、默认配置明文或 Git 历史。
+- 豆包图片理解接入使用火山方舟 Responses API（`/responses`），后台 `modelName` 应复制火山方舟“API 接入”示例代码里的 `model="..."` 值；`seedream` 图片生成模型和纯文本接入点不能用于本项目图片分类识别。
 
 ## 标准化开发流程
 

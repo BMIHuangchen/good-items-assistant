@@ -8,8 +8,8 @@ import com.gooditems.exception.ApiException;
 import com.gooditems.model.AiModelConfig;
 import com.gooditems.model.Category;
 import com.gooditems.model.MediaAsset;
-import org.springframework.http.MediaType;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -36,21 +36,15 @@ public class AiProviderClient {
     public AiProviderAnalysis analyzeImage(AiModelConfig model, MediaAsset media, byte[] imageBytes,
                                            String systemPrompt, List<Category> categories) {
         String apiKey = apiKey(model);
-        String categoryText = categories.stream()
-                .map(c -> "- id=%d, name=%s, slug=%s, description=%s".formatted(c.id(), c.name(), c.slug(), c.description()))
-                .reduce("", (a, b) -> a + b + "\n");
-        String instruction = """
-                请分析图片中的主要物品，并根据已有分类判断归类。
-                已有分类：
-                %s
-                返回严格 JSON，字段必须包括：
-                itemTitle, summary, experience, tags, decision, categoryId, newCategoryName,
-                newCategorySlug, newCategoryDescription, confidence, reason。
-                decision 只能是 EXISTING_CATEGORY 或 NEW_CATEGORY。
-                如果选择已有分类，categoryId 必须是已有分类 id。
-                如果新增分类，请给出简短中文分类名和英文小写 slug。
-                不要输出 Markdown，不要输出 JSON 以外的文字。
-                """.formatted(categoryText);
+        String instruction = buildInstruction(categories);
+        if ("doubao".equals(model.providerCode())) {
+            return analyzeImageWithResponsesApi(model, media, apiKey, systemPrompt, instruction);
+        }
+        return analyzeImageWithChatCompletions(model, media, imageBytes, apiKey, systemPrompt, instruction);
+    }
+
+    private AiProviderAnalysis analyzeImageWithChatCompletions(AiModelConfig model, MediaAsset media, byte[] imageBytes,
+                                                               String apiKey, String systemPrompt, String instruction) {
         String dataUrl = "data:%s;base64,%s".formatted(media.mimeType(), Base64.getEncoder().encodeToString(imageBytes));
         Map<String, Object> body = Map.of(
                 "model", model.modelName(),
@@ -72,11 +66,74 @@ public class AiProviderClient {
                 .retrieve()
                 .body(RESPONSE_MAP);
         if (response == null) {
-            throw new ApiException(502, "AI 模型没有返回结果");
+            throw new ApiException(502, "AI model returned no result");
         }
-        String content = extractContent(response);
+        return parseAnalysisResponse(response, extractChatContent(response));
+    }
+
+    private AiProviderAnalysis analyzeImageWithResponsesApi(AiModelConfig model, MediaAsset media, String apiKey,
+                                                            String systemPrompt, String instruction) {
+        Map<String, Object> body = Map.of(
+                "model", model.modelName(),
+                "input", List.of(
+                        Map.of("role", "system", "content", systemPrompt),
+                        Map.of("role", "user", "content", List.of(
+                                Map.of("type", "input_image", "image_url", media.publicUrl()),
+                                Map.of("type", "input_text", "text", instruction)
+                        ))
+                ),
+                "temperature", 0.2
+        );
+        Map<String, Object> response = restClient.post()
+                .uri(trimSlash(model.baseUrl()) + "/responses")
+                .contentType(MediaType.APPLICATION_JSON)
+                .headers(headers -> headers.setBearerAuth(apiKey))
+                .body(body)
+                .retrieve()
+                .body(RESPONSE_MAP);
+        if (response == null) {
+            throw new ApiException(502, "AI model returned no result");
+        }
+        return parseAnalysisResponse(response, extractResponsesContent(response));
+    }
+
+    private String buildInstruction(List<Category> categories) {
+        String categoryText = categories.stream()
+                .map(c -> "- id=%d, name=%s, slug=%s, description=%s".formatted(
+                        c.id(), c.name(), c.slug(), c.description()))
+                .reduce("", (a, b) -> a + b + "\n");
+        return """
+                Analyze the main item in this image and decide whether it belongs to an existing category
+                or needs a new category. Existing categories:
+                %s
+
+                Return strict JSON only. Do not return markdown or any text outside JSON.
+                Values should be written in Chinese where appropriate.
+                Required fields:
+                itemTitle, summary, experience, tags, decision, categoryId, newCategoryName,
+                newCategorySlug, newCategoryDescription, confidence, reason.
+                decision must be EXISTING_CATEGORY or NEW_CATEGORY.
+                If using an existing category, categoryId must be one of the existing category ids.
+                If creating a new category, provide a short Chinese category name and an English lowercase slug.
+                confidence must be a number from 0 to 1.
+                """.formatted(categoryText);
+    }
+
+    private AiProviderAnalysis parseAnalysisResponse(Map<String, Object> response, String content) {
         Map<String, Object> parsed = parseJsonContent(content);
         Map<String, Object> usage = map(response.get("usage"));
+        int promptTokens = intValue(usage.get("prompt_tokens"));
+        if (promptTokens == 0) {
+            promptTokens = intValue(usage.get("input_tokens"));
+        }
+        int completionTokens = intValue(usage.get("completion_tokens"));
+        if (completionTokens == 0) {
+            completionTokens = intValue(usage.get("output_tokens"));
+        }
+        int totalTokens = intValue(usage.get("total_tokens"));
+        if (totalTokens == 0) {
+            totalTokens = promptTokens + completionTokens;
+        }
         return new AiProviderAnalysis(
                 string(parsed.get("itemTitle")),
                 string(parsed.get("summary")),
@@ -90,9 +147,9 @@ public class AiProviderClient {
                 decimal(parsed.get("confidence")),
                 string(parsed.get("reason")),
                 content,
-                intValue(usage.get("prompt_tokens")),
-                intValue(usage.get("completion_tokens")),
-                intValue(usage.get("total_tokens"))
+                promptTokens,
+                completionTokens,
+                totalTokens
         );
     }
 
@@ -103,30 +160,59 @@ public class AiProviderClient {
             default -> System.getenv(model.apiKeyEnv());
         };
         if (value == null || value.isBlank()) {
-            throw new ApiException(500, "%s 的 API Key 未配置，请在服务器环境变量中配置 %s".formatted(model.displayName(), model.apiKeyEnv()));
+            throw new ApiException(500, "%s API key is not configured in %s".formatted(
+                    model.displayName(), model.apiKeyEnv()));
         }
         return value;
     }
 
-    private String extractContent(Map<String, Object> response) {
+    private String extractChatContent(Map<String, Object> response) {
         List<?> choices = (List<?>) response.get("choices");
         if (choices == null || choices.isEmpty()) {
-            throw new ApiException(502, "AI 模型返回格式异常：缺少 choices");
+            throw new ApiException(502, "AI response is missing choices");
         }
         Map<String, Object> choice = map(choices.getFirst());
         Map<String, Object> message = map(choice.get("message"));
         String content = string(message.get("content"));
         if (content == null || content.isBlank()) {
-            throw new ApiException(502, "AI 模型返回内容为空");
+            throw new ApiException(502, "AI response content is empty");
         }
-        return content.replace("```json", "").replace("```", "").trim();
+        return cleanJsonText(content);
+    }
+
+    private String extractResponsesContent(Map<String, Object> response) {
+        String outputText = string(response.get("output_text"));
+        if (outputText != null && !outputText.isBlank()) {
+            return cleanJsonText(outputText);
+        }
+        List<?> output = (List<?>) response.get("output");
+        if (output != null) {
+            for (Object item : output) {
+                Map<String, Object> outputItem = map(item);
+                List<?> contentList = (List<?>) outputItem.get("content");
+                if (contentList == null) {
+                    continue;
+                }
+                for (Object contentItem : contentList) {
+                    Map<String, Object> content = map(contentItem);
+                    String text = string(content.get("text"));
+                    if (text == null || text.isBlank()) {
+                        text = string(content.get("output_text"));
+                    }
+                    if (text != null && !text.isBlank()) {
+                        return cleanJsonText(text);
+                    }
+                }
+            }
+        }
+        throw new ApiException(502, "AI response content is empty");
     }
 
     private Map<String, Object> parseJsonContent(String content) {
         try {
             return mapper.readValue(content, MAP);
         } catch (Exception e) {
-            throw new ApiException(502, "AI 模型没有返回合法 JSON，请转人工确认");
+            throw new ApiException(502, "AI model did not return valid JSON");
         }
     }
 
@@ -179,6 +265,10 @@ public class AiProviderClient {
             return BigDecimal.ZERO;
         }
         return result.compareTo(BigDecimal.ONE) > 0 ? BigDecimal.ONE : result;
+    }
+
+    private String cleanJsonText(String value) {
+        return value.replace("```json", "").replace("```", "").trim();
     }
 
     private String trimSlash(String value) {
