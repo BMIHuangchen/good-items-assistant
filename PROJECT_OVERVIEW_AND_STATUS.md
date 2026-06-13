@@ -66,6 +66,9 @@
 - 后台静态文件：`/var/www/good-items-admin/`
 - 生产环境变量：`/etc/good-items-api.env`
 - 腾讯 COS 域名：`https://ai-file-1409230880.cos.ap-guangzhou.myqcloud.com`
+- 生产数据库：服务器本机 MariaDB 10.11，`127.0.0.1:3306/good_items_assistant`
+- 数据目录：`/var/lib/mysql/`
+- 最近备份：`/root/good_items_assistant_backup_20260613_031301.sql`
 
 ## 已完成验证
 
@@ -80,6 +83,8 @@
 - 后台 Vite 构建成功：`npm.cmd run build`。
 - 后端已按当前审核版移除旧 `/product/list`、`/category/list`、`/banner/list` 兼容路由。
 - 2026-06-11 体验版验证：后台修改好物内容后，体验版小程序前端同步显示正常。
+- 2026-06-13 服务器复查：`good-items-api.service` 运行中，生产数据库连接指向本机 MariaDB，当前表包括 `content_categories`、`content_items`、`content_banners`、`mini_program_config`、`operation_audit_logs`。
+- 2026-06-13 线上数据库统计：`content_categories=9`、`content_items=9`、`content_banners=3`、`mini_program_config=1`、`operation_audit_logs=0`，库大小约 `0.17MB`。
 
 ## 待处理事项
 
