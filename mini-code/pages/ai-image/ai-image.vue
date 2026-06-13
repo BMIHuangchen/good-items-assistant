@@ -21,9 +21,13 @@
     </view>
 
     <view class="panel">
-      <image v-if="imagePath" class="preview" :src="imagePath" mode="aspectFill" />
-      <button @click="chooseImage">选择图片</button>
-      <button class="primary" :loading="submitting" :disabled="!canSubmit" @click="submit">提交分析</button>
+      <image v-if="imagePath" class="preview" :src="imagePath" mode="aspectFit" />
+      <button class="action-button" :disabled="submitting" @click="chooseImage">选择图片</button>
+      <button class="action-button primary" :disabled="!canSubmit" @click="submit">
+        <text v-if="submitting" class="loading-dot"></text>
+        <text>{{ submitting ? '分析中...' : '提交分析' }}</text>
+      </button>
+      <text v-if="submitting" class="hint">图片已提交，AI 正在分析，请稍等 20-60 秒。</text>
     </view>
 
     <view v-if="result" class="panel">
@@ -87,15 +91,20 @@ async function submit() {
 </script>
 
 <style>
-.page { min-height: 100vh; background: #f6f7f4; padding: 24rpx; }
-.panel { background: #fff; border-radius: 16rpx; padding: 28rpx; margin-bottom: 20rpx; border: 1rpx solid #e1e6df; }
+view, text, button, image { box-sizing: border-box; }
+.page { width: 100%; min-height: 100vh; background: #f6f7f4; padding: 24rpx; overflow-x: hidden; }
+.panel { width: 100%; background: #fff; border-radius: 16rpx; padding: 28rpx; margin-bottom: 20rpx; border: 1rpx solid #e1e6df; overflow: hidden; }
 .title { display: block; font-size: 38rpx; font-weight: 800; color: #1d2522; }
 .label { display: block; font-size: 30rpx; font-weight: 700; color: #1d2522; }
 .desc { display: block; color: #65736d; font-size: 26rpx; line-height: 1.6; margin-top: 12rpx; }
-.model-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; margin-top: 18rpx; }
-.model { background: #edf0eb; color: #1d2522; border-radius: 12rpx; font-size: 26rpx; }
+.model-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240rpx, 1fr)); gap: 16rpx; margin-top: 18rpx; }
+.model { width: 100%; min-height: 84rpx; margin: 0; background: #edf0eb; color: #1d2522; border-radius: 12rpx; font-size: 26rpx; line-height: 84rpx; }
 .model.active { background: #2f6b4f; color: #fff; }
-.preview { width: 100%; height: 420rpx; border-radius: 14rpx; background: #edf0eb; margin-bottom: 20rpx; }
-button { margin-top: 18rpx; border-radius: 12rpx; }
+.preview { display: block; width: 100%; height: 420rpx; border-radius: 14rpx; background: #edf0eb; margin-bottom: 20rpx; }
+button { width: 100%; margin-top: 18rpx; border-radius: 12rpx; }
+.action-button { height: 92rpx; line-height: 92rpx; font-size: 30rpx; display: flex; align-items: center; justify-content: center; }
 .primary { background: #2f6b4f; color: #fff; }
+.hint { display: block; margin-top: 18rpx; color: #65736d; font-size: 24rpx; line-height: 1.5; text-align: center; }
+.loading-dot { width: 28rpx; height: 28rpx; margin-right: 12rpx; border: 4rpx solid rgba(255,255,255,0.45); border-top-color: #fff; border-radius: 50%; animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
