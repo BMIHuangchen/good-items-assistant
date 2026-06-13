@@ -162,14 +162,23 @@ public class AiProviderClient {
     }
 
     private BigDecimal decimal(Object value) {
+        BigDecimal result;
         if (value instanceof Number number) {
-            return BigDecimal.valueOf(number.doubleValue());
+            result = BigDecimal.valueOf(number.doubleValue());
+        } else {
+            try {
+                result = value == null ? BigDecimal.ZERO : new BigDecimal(String.valueOf(value));
+            } catch (Exception e) {
+                result = BigDecimal.ZERO;
+            }
         }
-        try {
-            return value == null ? BigDecimal.ZERO : new BigDecimal(String.valueOf(value));
-        } catch (Exception e) {
+        if (result.compareTo(BigDecimal.ONE) > 0) {
+            result = result.divide(BigDecimal.valueOf(100));
+        }
+        if (result.compareTo(BigDecimal.ZERO) < 0) {
             return BigDecimal.ZERO;
         }
+        return result.compareTo(BigDecimal.ONE) > 0 ? BigDecimal.ONE : result;
     }
 
     private String trimSlash(String value) {
