@@ -9,6 +9,7 @@ public class AppProperties {
     private String adminPassword;
     private String jwtSecret;
     private final Cos cos = new Cos();
+    private final Ai ai = new Ai();
     private final Diagnostics diagnostics = new Diagnostics();
 
     public String getPublicBaseUrl() { return publicBaseUrl; }
@@ -20,12 +21,15 @@ public class AppProperties {
     public String getJwtSecret() { return jwtSecret; }
     public void setJwtSecret(String jwtSecret) { this.jwtSecret = jwtSecret; }
     public Cos getCos() { return cos; }
+    public Ai getAi() { return ai; }
     public Diagnostics getDiagnostics() { return diagnostics; }
 
     public static class Cos {
         private String baseUrl;
         private String bucket;
         private String region;
+        private String secretId;
+        private String secretKey;
 
         public String getBaseUrl() { return baseUrl; }
         public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
@@ -33,6 +37,20 @@ public class AppProperties {
         public void setBucket(String bucket) { this.bucket = bucket; }
         public String getRegion() { return region; }
         public void setRegion(String region) { this.region = region; }
+        public String getSecretId() { return secretId; }
+        public void setSecretId(String secretId) { this.secretId = secretId; }
+        public String getSecretKey() { return secretKey; }
+        public void setSecretKey(String secretKey) { this.secretKey = secretKey; }
+    }
+
+    public static class Ai {
+        private String kimiApiKey;
+        private String doubaoApiKey;
+
+        public String getKimiApiKey() { return kimiApiKey; }
+        public void setKimiApiKey(String kimiApiKey) { this.kimiApiKey = kimiApiKey; }
+        public String getDoubaoApiKey() { return doubaoApiKey; }
+        public void setDoubaoApiKey(String doubaoApiKey) { this.doubaoApiKey = doubaoApiKey; }
     }
 
     public static class Diagnostics {

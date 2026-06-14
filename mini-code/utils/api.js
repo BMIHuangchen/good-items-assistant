@@ -134,6 +134,40 @@ export function request(path, data = {}) {
   })
 }
 
+export function upload(path, filePath, formData = {}) {
+  return new Promise((resolve, reject) => {
+    const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+    uni.uploadFile({
+      url: `${API_BASE_URL}${path}`,
+      filePath,
+      name: 'file',
+      formData,
+      timeout: 120000,
+      header: { 'X-Request-Id': requestId },
+      success(res) {
+        let body = {}
+        try {
+          body = typeof res.data === 'string' ? JSON.parse(res.data) : (res.data || {})
+        } catch (error) {
+          body = {}
+        }
+        if (res.statusCode === 200 && body.code === 200) {
+          resolve(body.data)
+          return
+        }
+        const error = { requestId: body.requestId || requestId, message: body.message || '上传接口返回异常', path }
+        uni.setStorageSync('lastNetworkIssue', error)
+        reject(error)
+      },
+      fail(err) {
+        const error = { requestId, message: err.errMsg || '图片上传失败', path }
+        uni.setStorageSync('lastNetworkIssue', error)
+        reject(error)
+      }
+    })
+  })
+}
+
 export function recordImageIssue(url, source = 'unknown') {
   const issue = {
     url,
@@ -193,6 +227,18 @@ export async function getMiniConfig() {
   } catch (error) {
     return fallbackConfig
   }
+}
+
+export async function getAiSettings() {
+  try {
+    return await request('/mini/ai/settings')
+  } catch (error) {
+    return { aiEnabled: false, models: [] }
+  }
+}
+
+export async function analyzeImage(providerCode, filePath) {
+  return upload('/mini/ai/analyze-image', filePath, { providerCode })
 }
 
 export async function getCategories() {

@@ -1,10 +1,10 @@
 <template>
   <view class="page">
-    <view class="category-list">
+    <scroll-view scroll-y class="category-list">
       <view v-for="category in categories" :key="category.id" class="category" :class="{ active: activeId === category.id }" @click="selectCategory(category.id)">
         <text>{{ category.name }}</text>
       </view>
-    </view>
+    </scroll-view>
     <scroll-view scroll-y class="content">
       <view v-if="items.length === 0" class="empty">
         <text>这个分类暂时还没有内容</text>
@@ -24,18 +24,26 @@
 
 <script setup>
 import { ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onShow } from '@dcloudio/uni-app'
 import { getCategories, getItems, recordImageIssue } from '../../utils/api'
 
 const categories = ref([])
 const items = ref([])
 const activeId = ref(0)
 
-onLoad(async () => {
-  categories.value = await getCategories()
-  activeId.value = categories.value[0]?.id || 0
+onShow(async () => {
+  await loadCategories()
   await loadItems()
 })
+
+async function loadCategories() {
+  const nextCategories = await getCategories()
+  const activeExists = nextCategories.some((category) => category.id === activeId.value)
+  categories.value = nextCategories
+  if (!activeExists) {
+    activeId.value = nextCategories[0]?.id || 0
+  }
+}
 
 async function selectCategory(id) {
   activeId.value = id
@@ -43,6 +51,10 @@ async function selectCategory(id) {
 }
 
 async function loadItems() {
+  if (!activeId.value) {
+    items.value = []
+    return
+  }
   items.value = await getItems({ categoryId: activeId.value })
 }
 
@@ -57,7 +69,7 @@ function onImageError(url, source) {
 
 <style>
 .page { display: grid; grid-template-columns: 190rpx 1fr; height: 100vh; background: #fff; }
-.category-list { background: #f3f3f3; border-right: 1rpx solid #e6e6e6; padding-top: 18rpx; }
+.category-list { height: 100vh; background: #f3f3f3; border-right: 1rpx solid #e6e6e6; padding-top: 18rpx; box-sizing: border-box; }
 .category { padding: 32rpx 20rpx; color: #666; font-size: 31rpx; text-align: center; line-height: 1.3; }
 .category.active { color: #2f6b4f; background: #fff; font-weight: 700; border-left: 8rpx solid #2f8b70; }
 .content { height: 100vh; padding: 28rpx; box-sizing: border-box; }

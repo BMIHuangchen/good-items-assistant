@@ -94,8 +94,9 @@ curl -sk https://zanzanai.top/api/mini/cos
 3. 确认数据库结构和线上数据。
 4. 先让新服务运行在 `18080`。
 5. Nginx 使用 `/gray-api/` 代理到 `http://127.0.0.1:18080/api/`。
-6. 验证灰度接口。
-7. 灰度通过后再切正式 `/api/`。
+6. AI 图片分析会等待第三方大模型返回，Nginx API 代理的 `proxy_read_timeout` 和 `proxy_send_timeout` 建议不低于 `120s`，避免后端成功但前端收到 504。
+7. 验证灰度接口。
+8. 灰度通过后再切正式 `/api/`。
 
 ## 正式切换流程
 

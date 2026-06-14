@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { Banner, Category, DashboardStats, GoodItem, MiniProgramConfig, PageResult } from '@/types'
+import type { AiCallLog, AiFeatureSettings, AiImageAnalysisTask, AiModelConfig, Banner, Category, DashboardStats, GoodItem, MiniProgramConfig, PageResult } from '@/types'
 
 export interface LoginResult {
   token: string
@@ -24,4 +24,12 @@ export const api = {
   banners: () => request.get<any, Banner[]>('/admin/banners'),
   createBanner: (body: Partial<Banner>) => request.post<any, Banner>('/admin/banners', body),
   updateBanner: (id: number, body: Partial<Banner>) => request.put<any, Banner>(`/admin/banners/${id}`, body),
+  aiSettings: () => request.get<any, AiFeatureSettings>('/admin/ai/settings'),
+  updateAiSettings: (body: Partial<AiFeatureSettings>) => request.put<any, AiFeatureSettings>('/admin/ai/settings', body),
+  aiModels: () => request.get<any, AiModelConfig[]>('/admin/ai/models'),
+  updateAiModel: (id: number, body: Partial<AiModelConfig>) => request.put<any, AiModelConfig>(`/admin/ai/models/${id}`, body),
+  aiImageTasks: (params?: Record<string, any>) => request.get<any, AiImageAnalysisTask[]>('/admin/ai/image-tasks', { params }),
+  confirmAiImageTask: (id: number, body: Record<string, any>) => request.post<any, AiImageAnalysisTask>(`/admin/ai/image-tasks/${id}/confirm`, body),
+  rejectAiImageTask: (id: number, reason: string) => request.post<any, void>(`/admin/ai/image-tasks/${id}/reject`, { reason }),
+  aiCallLogs: (params?: Record<string, any>) => request.get<any, AiCallLog[]>('/admin/ai/call-logs', { params }),
 }

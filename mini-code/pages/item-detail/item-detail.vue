@@ -1,5 +1,8 @@
 <template>
   <view class="page">
+    <view class="nav">
+      <button class="nav-back" @click="goBack">{{ canGoBack ? '返回' : '首页' }}</button>
+    </view>
     <view v-if="!item" class="empty">
       <text>网络连接失败，请返回后稍后重试</text>
     </view>
@@ -25,11 +28,21 @@ import { getFavorites, getItem, recordImageIssue, toggleFavorite } from '../../u
 
 const item = ref(null)
 const favorited = ref(false)
+const canGoBack = ref(false)
 
 onLoad(async (query) => {
+  canGoBack.value = getCurrentPages().length > 1
   item.value = await getItem(query.id)
   favorited.value = item.value ? getFavorites().some((saved) => saved.id === item.value.id) : false
 })
+
+function goBack() {
+  if (canGoBack.value) {
+    uni.navigateBack()
+    return
+  }
+  uni.switchTab({ url: '/pages/home/home' })
+}
 
 function favorite() {
   if (!item.value) return
@@ -43,7 +56,9 @@ function onImageError(url, source) {
 </script>
 
 <style>
-.page { min-height: 100vh; background: #f6f7f4; }
+.page { min-height: 100vh; background: #f6f7f4; position: relative; }
+.nav { position: fixed; top: 0; left: 0; right: 0; z-index: 10; padding: 88rpx 24rpx 16rpx; pointer-events: none; }
+.nav-back { width: 112rpx; height: 60rpx; line-height: 60rpx; margin: 0; padding: 0; border-radius: 999rpx; background: rgba(255,255,255,.92); color: #1d2522; font-size: 26rpx; box-shadow: 0 8rpx 24rpx rgba(26, 40, 32, .14); pointer-events: auto; }
 .empty { min-height: 100vh; display: flex; align-items: center; justify-content: center; color: #65736d; font-size: 28rpx; padding: 40rpx; box-sizing: border-box; text-align: center; }
 .cover { width: 100%; height: 560rpx; background: #e8ece5; }
 .body { background: #fff; margin-top: -32rpx; border-radius: 28rpx 28rpx 0 0; padding: 34rpx 28rpx 60rpx; position: relative; }
