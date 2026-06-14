@@ -7,6 +7,8 @@
     <view class="panel">
       <text class="label">登录状态</text>
       <text class="status" :class="{ ok: !!user }">{{ loginStatus }}</text>
+      <text v-if="user" class="desc">微信身份：{{ userIdentity(user) }}</text>
+      <text v-if="user?.tierCode" class="desc">会员等级：{{ user.tierCode }}</text>
       <text v-if="user" class="desc">用户 ID：{{ user.id }}；登录次数：{{ user.loginCount || 0 }}</text>
       <text v-if="user?.lastLoginAt" class="desc">最近登录：{{ user.lastLoginAt }}</text>
       <text v-if="loginErrorText" class="desc">登录提示：{{ loginErrorText }}</text>
@@ -117,6 +119,13 @@ function openAiImage() {
 
 function money(value) {
   return Number(value || 0).toFixed(4)
+}
+
+function userIdentity(currentUser) {
+  if (currentUser?.nickname) return currentUser.nickname
+  const openid = currentUser?.openid || ''
+  if (openid.length <= 8) return '微信用户'
+  return `${openid.slice(0, 4)}****${openid.slice(-4)}`
 }
 </script>
 

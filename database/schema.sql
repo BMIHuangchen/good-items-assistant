@@ -83,6 +83,23 @@ create table if not exists operation_audit_logs (
   index idx_audit_created_at (created_at)
 );
 
+create table if not exists compute_tiers (
+  tier_code varchar(20) primary key,
+  tier_name varchar(40) not null,
+  daily_token_limit bigint not null default 0,
+  monthly_token_limit bigint not null default 0,
+  daily_call_limit int not null default 0,
+  enabled tinyint(1) not null default 1,
+  sort_order int not null default 0,
+  updated_at datetime not null default current_timestamp on update current_timestamp
+);
+
+insert ignore into compute_tiers(tier_code, tier_name, daily_token_limit, monthly_token_limit, daily_call_limit, enabled, sort_order)
+values
+('LEVEL_1','一级会员',50000,1000000,20,1,10),
+('LEVEL_2','二级会员',200000,5000000,80,1,20),
+('LEVEL_3','三级会员',1000000,20000000,300,1,30);
+
 create table if not exists mini_users (
   id bigint primary key auto_increment,
   openid varchar(120) not null unique,
@@ -90,13 +107,18 @@ create table if not exists mini_users (
   nickname varchar(120),
   avatar_url varchar(800),
   status varchar(30) not null default 'ACTIVE',
+  tier_code varchar(20) not null default 'LEVEL_1',
+  custom_daily_token_limit bigint null,
+  custom_monthly_token_limit bigint null,
+  custom_daily_call_limit int null,
   login_count int not null default 0,
   first_login_at datetime,
   last_login_at datetime,
   created_at datetime not null default current_timestamp,
   updated_at datetime not null default current_timestamp on update current_timestamp,
   index idx_mini_users_last_login (last_login_at),
-  index idx_mini_users_status (status)
+  index idx_mini_users_status (status),
+  index idx_mini_users_tier (tier_code)
 );
 
 create table if not exists user_login_events (

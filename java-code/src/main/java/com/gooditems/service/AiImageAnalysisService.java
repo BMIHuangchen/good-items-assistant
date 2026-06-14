@@ -13,8 +13,10 @@ import com.gooditems.model.AiModelConfig;
 import com.gooditems.model.Category;
 import com.gooditems.model.GoodItem;
 import com.gooditems.model.MediaAsset;
+import com.gooditems.model.UserComputeQuota;
 import com.gooditems.repository.AiRepository;
 import com.gooditems.repository.ContentRepository;
+import com.gooditems.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -31,13 +33,16 @@ public class AiImageAnalysisService {
     private static final String SCENARIO = "IMAGE_CLASSIFY";
     private final AiRepository aiRepository;
     private final ContentRepository contentRepository;
+    private final UserRepository userRepository;
     private final MediaStorageService mediaStorageService;
     private final AiProviderClient providerClient;
 
     public AiImageAnalysisService(AiRepository aiRepository, ContentRepository contentRepository,
-                                  MediaStorageService mediaStorageService, AiProviderClient providerClient) {
+                                  UserRepository userRepository, MediaStorageService mediaStorageService,
+                                  AiProviderClient providerClient) {
         this.aiRepository = aiRepository;
         this.contentRepository = contentRepository;
+        this.userRepository = userRepository;
         this.mediaStorageService = mediaStorageService;
         this.providerClient = providerClient;
     }
@@ -59,9 +64,10 @@ public class AiImageAnalysisService {
         if (file.getSize() > settings.maxImageSizeMb() * 1024L * 1024L) {
             throw new ApiException(400, "图片不能超过 %dMB".formatted(settings.maxImageSizeMb()));
         }
-        if (aiRepository.todayCallCount() >= settings.dailyCallLimit() || aiRepository.todayCallCount(userId) >= settings.dailyCallLimit()) {
+        if (aiRepository.todayCallCount() >= settings.dailyCallLimit()) {
             throw new ApiException(429, "今日 AI 调用次数已达上限，请明天再试");
         }
+        ensureUserQuota(userId);
         AiModelConfig model = aiRepository.model(providerCode);
         if (!Boolean.TRUE.equals(model.enabled())) {
             throw new ApiException(403, "当前 AI 模型未启用");
@@ -224,6 +230,19 @@ public class AiImageAnalysisService {
         BigDecimal prompt = model.promptPricePer1k().multiply(BigDecimal.valueOf(promptTokens)).divide(BigDecimal.valueOf(1000), 6, RoundingMode.HALF_UP);
         BigDecimal completion = model.completionPricePer1k().multiply(BigDecimal.valueOf(completionTokens)).divide(BigDecimal.valueOf(1000), 6, RoundingMode.HALF_UP);
         return prompt.add(completion);
+    }
+
+    private void ensureUserQuota(Long userId) {
+        UserComputeQuota quota = userRepository.userComputeQuota(userId);
+        if (quota.dailyCallLimit() != null && quota.dailyCallLimit() > 0 && quota.todayCalls() >= quota.dailyCallLimit()) {
+            throw new ApiException(429, "今日 AI 调用次数已达到会员上限，请明天再试");
+        }
+        if (quota.dailyTokenLimit() != null && quota.dailyTokenLimit() > 0 && quota.todayTokens() >= quota.dailyTokenLimit()) {
+            throw new ApiException(429, "今日 AI 算力额度已用完，请明天再试");
+        }
+        if (quota.monthlyTokenLimit() != null && quota.monthlyTokenLimit() > 0 && quota.monthTokens() >= quota.monthlyTokenLimit()) {
+            throw new ApiException(429, "本月 AI 算力额度已用完，请下月再试");
+        }
     }
 
     private byte[] bytes(MultipartFile file) {

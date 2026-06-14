@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { AiCallLog, AiFeatureSettings, AiImageAnalysisTask, AiModelConfig, AnalyticsOverview, Banner, Category, DashboardStats, GoodItem, MiniProgramConfig, MiniUser, PageResult, UserAiUsage } from '@/types'
+import type { AiCallLog, AiFeatureSettings, AiImageAnalysisTask, AiModelConfig, AnalyticsOverview, Banner, Category, ComputeTier, DashboardStats, GoodItem, MiniProgramConfig, MiniUser, PageResult, UserAiUsage } from '@/types'
 
 export interface LoginResult {
   token: string
@@ -34,5 +34,8 @@ export const api = {
   aiCallLogs: (params?: Record<string, any>) => request.get<any, AiCallLog[]>('/admin/ai/call-logs', { params }),
   users: (params?: Record<string, any>) => request.get<any, MiniUser[]>('/admin/users', { params }),
   userAiUsage: (params?: Record<string, any>) => request.get<any, UserAiUsage[]>('/admin/users/ai-usage', { params }),
+  computeTiers: () => request.get<any, ComputeTier[]>('/admin/users/compute-tiers'),
+  updateComputeTier: (tierCode: string, body: Partial<ComputeTier>) => request.put<any, ComputeTier>(`/admin/users/compute-tiers/${tierCode}`, body),
+  updateUserTier: (id: number, body: Record<string, any>) => request.put<any, MiniUser>(`/admin/users/${id}/tier`, body),
   analyticsOverview: () => request.get<any, AnalyticsOverview>('/admin/analytics/overview'),
 }

@@ -147,6 +147,10 @@ export interface MiniUser {
   nickname?: string
   avatarUrl?: string
   status: string
+  tierCode: string
+  customDailyTokenLimit?: number
+  customMonthlyTokenLimit?: number
+  customDailyCallLimit?: number
   loginCount: number
   firstLoginAt?: string
   lastLoginAt?: string
@@ -158,6 +162,8 @@ export interface UserAiUsage {
   userId: number
   openidMask: string
   nickname?: string
+  tierCode: string
+  tierName: string
   callCount: number
   successCount: number
   failedCount: number
@@ -178,7 +184,41 @@ export interface AnalyticsOverview {
   totalAiEstimatedCost: number
   loginTrend: Array<{ date: string; value: number }>
   aiTrend: Array<{ date: string; value: number }>
+  aiTokenTrend: Array<{ date: string; value: number }>
   eventRanking: Array<{ name: string; value: number }>
   modelUsage: Array<{ name: string; value: number }>
+  modelComputeUsage: Array<{
+    providerCode: string
+    modelName: string
+    callCount: number
+    successCount: number
+    failedCount: number
+    promptTokens: number
+    completionTokens: number
+    totalTokens: number
+    estimatedCost: number
+    avgDurationMs: number
+  }>
+  userComputeRanking: Array<{
+    userId: number
+    openidMask: string
+    nickname?: string
+    tierCode: string
+    tierName: string
+    callCount: number
+    totalTokens: number
+    estimatedCost: number
+  }>
   hotItems: Array<{ name: string; value: number }>
+}
+
+export interface ComputeTier {
+  tierCode: string
+  tierName: string
+  dailyTokenLimit: number
+  monthlyTokenLimit: number
+  dailyCallLimit: number
+  enabled: boolean
+  sortOrder: number
+  updatedAt?: string
 }

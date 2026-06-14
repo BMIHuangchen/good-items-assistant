@@ -6,6 +6,8 @@ public record UserAiUsage(
         Long userId,
         String openidMask,
         String nickname,
+        String tierCode,
+        String tierName,
         Long callCount,
         Long successCount,
         Long failedCount,

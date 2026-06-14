@@ -57,6 +57,8 @@ logs/
 cos-upload-assets/
 deploy/user-ai-usage-*/
 deploy/user-ai-usage-*.zip
+release-user-ai-compute-*/
+release-user-ai-compute-*.zip
 
 # 本地数据库文件。注意：database/*.sql 是项目结构脚本，需要纳入版本管理。
 *.sqlite

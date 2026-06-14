@@ -2,10 +2,14 @@ package com.gooditems.repository;
 
 import com.gooditems.dto.AnalyticsOverviewResponse;
 import com.gooditems.dto.BehaviorEventRequest;
+import com.gooditems.dto.ComputeTierRequest;
 import com.gooditems.dto.MiniUsageResponse;
+import com.gooditems.dto.UserTierRequest;
 import com.gooditems.exception.ApiException;
+import com.gooditems.model.ComputeTier;
 import com.gooditems.model.GoodItem;
 import com.gooditems.model.MiniUser;
+import com.gooditems.model.UserComputeQuota;
 import com.gooditems.model.UserAiUsage;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -66,7 +70,66 @@ public class UserRepository {
     }
 
     public List<MiniUser> users(int pageSize) {
-        return jdbc.query("select * from mini_users order by last_login_at desc, id desc limit ?", userMapper(), pageSize);
+        return jdbc.query("select u.*, t.tier_name from mini_users u left join compute_tiers t on t.tier_code = u.tier_code order by u.last_login_at desc, u.id desc limit ?", userMapper(), pageSize);
+    }
+
+    public List<ComputeTier> computeTiers() {
+        ensureComputeTiers();
+        return jdbc.query("select * from compute_tiers order by sort_order desc, tier_code", computeTierMapper());
+    }
+
+    public ComputeTier updateComputeTier(String tierCode, ComputeTierRequest request) {
+        ensureComputeTiers();
+        jdbc.update("""
+                update compute_tiers
+                set tier_name=?, daily_token_limit=?, monthly_token_limit=?, daily_call_limit=?,
+                enabled=?, sort_order=?, updated_at=now()
+                where tier_code=?
+                """, value(request.tierName(), tierCode), positiveLong(request.dailyTokenLimit(), 0L),
+                positiveLong(request.monthlyTokenLimit(), 0L), positiveInt(request.dailyCallLimit(), 0),
+                Boolean.TRUE.equals(request.enabled()), request.sortOrder() == null ? 0 : request.sortOrder(), tierCode);
+        return jdbc.query("select * from compute_tiers where tier_code = ?", computeTierMapper(), tierCode)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new ApiException(404, "算力会员等级不存在"));
+    }
+
+    public MiniUser updateUserTier(Long userId, UserTierRequest request) {
+        ensureComputeTiers();
+        String tierCode = value(request.tierCode(), "LEVEL_1");
+        Integer exists = jdbc.queryForObject("select count(*) from compute_tiers where tier_code = ?", Integer.class, tierCode);
+        if (exists == null || exists == 0) {
+            throw new ApiException(404, "算力会员等级不存在");
+        }
+        jdbc.update("""
+                update mini_users
+                set tier_code=?, custom_daily_token_limit=?, custom_monthly_token_limit=?,
+                custom_daily_call_limit=?, updated_at=now()
+                where id=?
+                """, tierCode, nullablePositive(request.customDailyTokenLimit()),
+                nullablePositive(request.customMonthlyTokenLimit()), nullablePositiveInt(request.customDailyCallLimit()), userId);
+        return findById(userId);
+    }
+
+    public UserComputeQuota userComputeQuota(Long userId) {
+        ensureComputeTiers();
+        MiniUser user = findById(userId);
+        Map<String, Object> row = jdbc.queryForMap("""
+                select u.id user_id, u.tier_code, coalesce(t.tier_name, u.tier_code) tier_name,
+                coalesce(u.custom_daily_token_limit, t.daily_token_limit, 0) daily_token_limit,
+                coalesce(u.custom_monthly_token_limit, t.monthly_token_limit, 0) monthly_token_limit,
+                coalesce(u.custom_daily_call_limit, t.daily_call_limit, 0) daily_call_limit,
+                (select coalesce(sum(total_tokens),0) from ai_call_logs where user_id=u.id and created_at >= curdate()) today_tokens,
+                (select coalesce(sum(total_tokens),0) from ai_call_logs where user_id=u.id and created_at >= date_format(curdate(), '%Y-%m-01')) month_tokens,
+                (select count(*) from ai_call_logs where user_id=u.id and scenario='IMAGE_CLASSIFY' and created_at >= curdate()) today_calls
+                from mini_users u
+                left join compute_tiers t on t.tier_code = u.tier_code
+                where u.id = ?
+                """, user.id());
+        return new UserComputeQuota(num(row, "user_id"), stringValue(row.get("tier_code")),
+                stringValue(row.get("tier_name")), num(row, "daily_token_limit"),
+                num(row, "monthly_token_limit"), Math.toIntExact(num(row, "daily_call_limit")),
+                num(row, "today_tokens"), num(row, "month_tokens"), Math.toIntExact(num(row, "today_calls")));
     }
 
     public void recordEvent(Long userId, BehaviorEventRequest request, String requestId) {
@@ -133,7 +196,7 @@ public class UserRepository {
 
     public List<UserAiUsage> userAiUsage(int pageSize) {
         return jdbc.query("""
-                select u.id user_id, u.openid, u.nickname,
+                select u.id user_id, u.openid, u.nickname, u.tier_code, coalesce(t.tier_name, u.tier_code) tier_name,
                 count(l.id) call_count,
                 sum(case when l.status='SUCCESS' then 1 else 0 end) success_count,
                 sum(case when l.status<>'SUCCESS' then 1 else 0 end) failed_count,
@@ -143,8 +206,9 @@ public class UserRepository {
                 coalesce(sum(l.estimated_cost),0) estimated_cost,
                 coalesce(avg(l.duration_ms),0) avg_duration_ms
                 from mini_users u
+                left join compute_tiers t on t.tier_code = u.tier_code
                 left join ai_call_logs l on l.user_id = u.id
-                group by u.id, u.openid, u.nickname
+                group by u.id, u.openid, u.nickname, u.tier_code, t.tier_name
                 order by total_tokens desc, call_count desc, u.last_login_at desc
                 limit ?
                 """, userAiUsageMapper(), pageSize);
@@ -171,8 +235,11 @@ public class UserRepository {
                 decimal(row, "total_ai_estimated_cost"),
                 trend("user_login_events", "created_at"),
                 trend("ai_call_logs", "created_at"),
+                tokenTrend(),
                 nameValues("select event_type name, count(*) value from user_behavior_events group by event_type order by value desc limit 8"),
                 nameValues("select provider_code name, count(*) value from ai_call_logs group by provider_code order by value desc limit 8"),
+                modelComputeUsage(),
+                userComputeRanking(),
                 nameValues("""
                         select i.title name, count(*) value
                         from user_behavior_events e
@@ -207,22 +274,95 @@ public class UserRepository {
                 String.valueOf(rs.getObject("date_value")), rs.getLong("value")));
     }
 
+    private List<AnalyticsOverviewResponse.TrendPoint> tokenTrend() {
+        return jdbc.query("""
+                select date(created_at) date_value, coalesce(sum(total_tokens),0) value
+                from ai_call_logs
+                where created_at >= date_sub(curdate(), interval 13 day)
+                group by date(created_at)
+                order by date_value
+                """, (rs, rowNum) -> new AnalyticsOverviewResponse.TrendPoint(
+                String.valueOf(rs.getObject("date_value")), rs.getLong("value")));
+    }
+
+    private List<AnalyticsOverviewResponse.ModelComputeUsage> modelComputeUsage() {
+        return jdbc.query("""
+                select provider_code, model_name,
+                count(*) call_count,
+                sum(case when status='SUCCESS' then 1 else 0 end) success_count,
+                sum(case when status<>'SUCCESS' then 1 else 0 end) failed_count,
+                coalesce(sum(prompt_tokens),0) prompt_tokens,
+                coalesce(sum(completion_tokens),0) completion_tokens,
+                coalesce(sum(total_tokens),0) total_tokens,
+                coalesce(sum(estimated_cost),0) estimated_cost,
+                coalesce(avg(duration_ms),0) avg_duration_ms
+                from ai_call_logs
+                group by provider_code, model_name
+                order by total_tokens desc, call_count desc
+                limit 10
+                """, (rs, rowNum) -> new AnalyticsOverviewResponse.ModelComputeUsage(
+                rs.getString("provider_code"), rs.getString("model_name"), rs.getLong("call_count"),
+                rs.getLong("success_count"), rs.getLong("failed_count"), rs.getLong("prompt_tokens"),
+                rs.getLong("completion_tokens"), rs.getLong("total_tokens"),
+                rs.getBigDecimal("estimated_cost"), rs.getLong("avg_duration_ms")));
+    }
+
+    private List<AnalyticsOverviewResponse.UserComputeRank> userComputeRanking() {
+        return jdbc.query("""
+                select u.id user_id, u.openid, u.nickname, u.tier_code, coalesce(t.tier_name, u.tier_code) tier_name,
+                count(l.id) call_count,
+                coalesce(sum(l.total_tokens),0) total_tokens,
+                coalesce(sum(l.estimated_cost),0) estimated_cost
+                from mini_users u
+                left join compute_tiers t on t.tier_code = u.tier_code
+                left join ai_call_logs l on l.user_id = u.id
+                group by u.id, u.openid, u.nickname, u.tier_code, t.tier_name
+                having call_count > 0 or total_tokens > 0
+                order by total_tokens desc, estimated_cost desc
+                limit 10
+                """, (rs, rowNum) -> new AnalyticsOverviewResponse.UserComputeRank(
+                rs.getLong("user_id"), mask(rs.getString("openid")), rs.getString("nickname"),
+                rs.getString("tier_code"), rs.getString("tier_name"), rs.getLong("call_count"),
+                rs.getLong("total_tokens"), rs.getBigDecimal("estimated_cost")));
+    }
+
     private List<AnalyticsOverviewResponse.NameValue> nameValues(String sql) {
         return jdbc.query(sql, (rs, rowNum) -> new AnalyticsOverviewResponse.NameValue(rs.getString("name"), rs.getLong("value")));
     }
 
     private RowMapper<MiniUser> userMapper() {
         return (rs, rowNum) -> new MiniUser(rs.getLong("id"), rs.getString("openid"), rs.getString("unionid"),
-                rs.getString("nickname"), rs.getString("avatar_url"), rs.getString("status"), rs.getInt("login_count"),
+                rs.getString("nickname"), rs.getString("avatar_url"), rs.getString("status"),
+                rs.getString("tier_code"), longColumn(rs, "custom_daily_token_limit"),
+                longColumn(rs, "custom_monthly_token_limit"), intColumn(rs, "custom_daily_call_limit"),
+                rs.getInt("login_count"),
                 time(rs.getObject("first_login_at")), time(rs.getObject("last_login_at")),
                 time(rs.getObject("created_at")), time(rs.getObject("updated_at")));
     }
 
     private RowMapper<UserAiUsage> userAiUsageMapper() {
         return (rs, rowNum) -> new UserAiUsage(rs.getLong("user_id"), mask(rs.getString("openid")),
-                rs.getString("nickname"), rs.getLong("call_count"), rs.getLong("success_count"),
+                rs.getString("nickname"), rs.getString("tier_code"), rs.getString("tier_name"),
+                rs.getLong("call_count"), rs.getLong("success_count"),
                 rs.getLong("failed_count"), rs.getLong("prompt_tokens"), rs.getLong("completion_tokens"),
                 rs.getLong("total_tokens"), rs.getBigDecimal("estimated_cost"), rs.getLong("avg_duration_ms"));
+    }
+
+    private RowMapper<ComputeTier> computeTierMapper() {
+        return (rs, rowNum) -> new ComputeTier(rs.getString("tier_code"), rs.getString("tier_name"),
+                rs.getLong("daily_token_limit"), rs.getLong("monthly_token_limit"),
+                rs.getInt("daily_call_limit"), rs.getBoolean("enabled"), rs.getInt("sort_order"),
+                time(rs.getObject("updated_at")));
+    }
+
+    private void ensureComputeTiers() {
+        jdbc.update("""
+                insert ignore into compute_tiers(tier_code, tier_name, daily_token_limit, monthly_token_limit, daily_call_limit, enabled, sort_order)
+                values
+                ('LEVEL_1','一级会员',50000,1000000,20,1,10),
+                ('LEVEL_2','二级会员',200000,5000000,80,1,20),
+                ('LEVEL_3','三级会员',1000000,20000000,300,1,30)
+                """);
     }
 
     private LocalDateTime time(Object value) {
@@ -231,6 +371,26 @@ public class UserRepository {
 
     private String value(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private long positiveLong(Long value, Long fallback) {
+        return Math.max(0L, value == null ? fallback : value);
+    }
+
+    private int positiveInt(Integer value, Integer fallback) {
+        return Math.max(0, value == null ? fallback : value);
+    }
+
+    private Long nullablePositive(Long value) {
+        return value == null ? null : Math.max(0L, value);
+    }
+
+    private Integer nullablePositiveInt(Integer value) {
+        return value == null ? null : Math.max(0, value);
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 
     private long num(Map<String, Object> row, String key) {
@@ -247,6 +407,16 @@ public class UserRepository {
             return BigDecimal.valueOf(number.doubleValue());
         }
         return BigDecimal.ZERO;
+    }
+
+    private Long longColumn(java.sql.ResultSet rs, String column) throws java.sql.SQLException {
+        long value = rs.getLong(column);
+        return rs.wasNull() ? null : value;
+    }
+
+    private Integer intColumn(java.sql.ResultSet rs, String column) throws java.sql.SQLException {
+        int value = rs.getInt(column);
+        return rs.wasNull() ? null : value;
     }
 
     private String mask(String openid) {
