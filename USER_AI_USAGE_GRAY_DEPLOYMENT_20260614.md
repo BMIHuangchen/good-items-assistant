@@ -35,7 +35,7 @@ PR 当前是 Draft。不要在完成微信 AppSecret 配置、小程序体验版
 
 仍需处理：
 
-- `/etc/good-items-api.env` 当前尚未配置 `WECHAT_MINI_APP_ID` 和 `WECHAT_MINI_APP_SECRET`；后端目前会走本地兜底 openid 逻辑，体验版真机验证微信真实 openid 前必须补齐微信 AppSecret。
+- `/etc/good-items-api.env` 已配置 `WECHAT_MINI_APP_ID`、`WECHAT_MINI_APP_SECRET` 和 `MINI_JWT_SECRET`；假 code 会返回明确的微信登录失败，不再走本地兜底 openid。下一步需要上传小程序体验版，用微信开发者工具或真机生成真实 `wx.login` code 完成最终登录链路验证。
 
 ## 本地验证记录
 
