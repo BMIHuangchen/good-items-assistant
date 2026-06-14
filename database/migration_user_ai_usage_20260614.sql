@@ -57,8 +57,31 @@ create table if not exists user_favorites (
   index idx_user_favorites_created (created_at)
 );
 
-alter table ai_image_analysis_tasks add column if not exists user_id bigint null after request_id;
-alter table ai_image_analysis_tasks add index if not exists idx_ai_image_tasks_user_created (user_id, created_at);
+set @ai_tasks_user_column_exists = (
+  select count(*) from information_schema.columns
+  where table_schema = database()
+    and table_name = 'ai_image_analysis_tasks'
+    and column_name = 'user_id'
+);
+set @ai_tasks_user_column_sql = if(@ai_tasks_user_column_exists = 0,
+  'alter table ai_image_analysis_tasks add column user_id bigint null after request_id',
+  'select "ai_image_analysis_tasks.user_id already exists"');
+prepare stmt from @ai_tasks_user_column_sql;
+execute stmt;
+deallocate prepare stmt;
+
+set @ai_tasks_user_index_exists = (
+  select count(*) from information_schema.statistics
+  where table_schema = database()
+    and table_name = 'ai_image_analysis_tasks'
+    and index_name = 'idx_ai_image_tasks_user_created'
+);
+set @ai_tasks_user_index_sql = if(@ai_tasks_user_index_exists = 0,
+  'alter table ai_image_analysis_tasks add index idx_ai_image_tasks_user_created (user_id, created_at)',
+  'select "idx_ai_image_tasks_user_created already exists"');
+prepare stmt from @ai_tasks_user_index_sql;
+execute stmt;
+deallocate prepare stmt;
 set @fk_ai_tasks_user_exists = (
   select count(*) from information_schema.table_constraints
   where table_schema = database()
@@ -72,8 +95,31 @@ prepare stmt from @fk_ai_tasks_user_sql;
 execute stmt;
 deallocate prepare stmt;
 
-alter table ai_call_logs add column if not exists user_id bigint null after request_id;
-alter table ai_call_logs add index if not exists idx_ai_call_logs_user_created (user_id, created_at);
+set @ai_logs_user_column_exists = (
+  select count(*) from information_schema.columns
+  where table_schema = database()
+    and table_name = 'ai_call_logs'
+    and column_name = 'user_id'
+);
+set @ai_logs_user_column_sql = if(@ai_logs_user_column_exists = 0,
+  'alter table ai_call_logs add column user_id bigint null after request_id',
+  'select "ai_call_logs.user_id already exists"');
+prepare stmt from @ai_logs_user_column_sql;
+execute stmt;
+deallocate prepare stmt;
+
+set @ai_logs_user_index_exists = (
+  select count(*) from information_schema.statistics
+  where table_schema = database()
+    and table_name = 'ai_call_logs'
+    and index_name = 'idx_ai_call_logs_user_created'
+);
+set @ai_logs_user_index_sql = if(@ai_logs_user_index_exists = 0,
+  'alter table ai_call_logs add index idx_ai_call_logs_user_created (user_id, created_at)',
+  'select "idx_ai_call_logs_user_created already exists"');
+prepare stmt from @ai_logs_user_index_sql;
+execute stmt;
+deallocate prepare stmt;
 set @fk_ai_logs_user_exists = (
   select count(*) from information_schema.table_constraints
   where table_schema = database()

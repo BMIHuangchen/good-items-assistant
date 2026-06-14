@@ -35,6 +35,27 @@ npm.cmd run build
 - Sass legacy JS API 有 deprecation warning。
 - `npm audit` 仍有 Vite/esbuild 相关漏洞提示，升级会涉及 breaking change，建议单独分支处理。
 
+## 本地接口测试记录
+
+2026-06-14 本地 MySQL 8 环境已完成接口级验证。测试环境使用 `good_items/change-me` 连接本地 `good_items_assistant`，后端运行在 `http://localhost:8080`。
+
+已验证：
+
+- `scripts/local-check.ps1 -BaseUrl http://localhost:8080` 通过，公开 ready、Banner、分类、内容、COS 接口返回 200。
+- 未登录访问 `/api/mini/me/favorites` 返回 401，收藏功能未绕过登录。
+- `/api/mini/auth/login` 在本地未配置微信 AppID/Secret 时使用 `dev_openid_*` 兜底并返回小程序 token。
+- 登录后 `/api/mini/auth/me` 返回当前用户。
+- 登录后服务端收藏新增和收藏列表查询通过。
+- `/api/mini/me/ai-usage` 返回今日/本月 Token 和估算费用结构。
+- `/api/mini/me/events` 可记录用户行为事件。
+- 管理员登录通过。
+- `/api/admin/users`、`/api/admin/users/ai-usage`、`/api/admin/analytics/overview` 返回 200。
+- AI 总开关关闭时，登录用户上传图片到 `/api/mini/ai/analyze-image` 返回 403：`AI 图片分析入口暂未开启`。
+
+本地测试额外发现并修复：
+
+- 原迁移脚本使用 `alter table ... add column if not exists`，MariaDB 10.11 可用，但 MySQL 8 不兼容；已改为 `information_schema + prepare/execute` 动态 SQL，提升迁移脚本兼容性。
+
 ## 本地灰度部署包
 
 本地已生成部署包目录：
