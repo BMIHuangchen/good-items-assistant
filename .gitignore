@@ -54,6 +54,7 @@ web-code/.stylelintcache
 .env.*.local
 .codex-ssh/
 cos-upload-assets/
+deploy/user-ai-usage-*/
 
 # 本地数据库文件。注意：database/*.sql 是项目结构脚本，需要纳入版本管理。
 *.sqlite
