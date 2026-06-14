@@ -8,6 +8,9 @@
 
 当前提交：
 
+- `295a28e fix: align deployment templates with production port`
+- `f2232ee test: record local user ai usage verification`
+- `87aba6e docs: add user ai usage gray deployment handoff`
 - `0aa1bc9 chore: ignore local deployment bundles`
 - `eb11ba2 feat: add mini user AI usage analytics`
 
@@ -28,6 +31,16 @@ D:\cursor\apache-maven-3.9.15\bin\mvn.cmd package -DskipTests
 cd ..\web-code
 npm.cmd run build
 ```
+
+2026-06-14 已补充本地真实后台页面验证：
+
+- 使用本地后端 `http://localhost:8080` 和后台 Vite `http://127.0.0.1:5173`。
+- 管理员登录接口 `/api/admin/auth/login` 返回 200，登录后后台 shell 正常显示。
+- “数据看板”页面可见注册用户、今日登录、今日活跃、行为事件、AI 调用、估算费用、登录趋势、AI 调用趋势、功能使用排行、模型使用排行和内容热度。
+- “用户管理”页面可见小程序用户列表，以及每个用户的 AI 调用、成功、失败、Token、估算费用和平均耗时。
+- “AI 设置”页面可见 AI 总开关、自动入库、自动发布、模型配置与 Key 环境变量名，不暴露密钥。
+- “AI 图片分析”页面可见任务列表和调用日志，接口均返回 200。
+- 页面验证期间未发现 4xx/5xx API 响应、网络失败或前端控制台错误。
 
 已知非阻塞提示：
 
