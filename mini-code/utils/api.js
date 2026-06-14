@@ -11,6 +11,11 @@ export function getCurrentUser() {
   return uni.getStorageSync(USER_KEY) || null
 }
 
+export function clearLogin() {
+  uni.removeStorageSync(TOKEN_KEY)
+  uni.removeStorageSync(USER_KEY)
+}
+
 function authHeader() {
   const token = getToken()
   return token ? { Authorization: `Bearer ${token}` } : {}
@@ -34,15 +39,14 @@ export async function ensureLogin() {
           reject(error)
         }
       },
-      fail: async () => {
-        try {
-          const data = await post('/mini/auth/login', { code: `dev-${Date.now()}` }, false)
-          uni.setStorageSync(TOKEN_KEY, data.token)
-          uni.setStorageSync(USER_KEY, data.user)
-          resolve(data.user)
-        } catch (error) {
-          reject(error)
+      fail: (err) => {
+        const error = {
+          requestId: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          message: err?.errMsg || '微信登录失败',
+          path: 'wx.login'
         }
+        uni.setStorageSync('lastNetworkIssue', error)
+        reject(error)
       }
     })
   })
