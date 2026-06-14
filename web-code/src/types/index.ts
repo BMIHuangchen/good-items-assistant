@@ -96,6 +96,8 @@ export interface AiModelConfig {
 export interface AiImageAnalysisTask {
   id: number
   requestId: string
+  userId?: number
+  openidMask?: string
   mediaAssetId: number
   mediaUrl: string
   providerCode: string
@@ -122,6 +124,8 @@ export interface AiImageAnalysisTask {
 export interface AiCallLog {
   id: number
   requestId: string
+  userId?: number
+  openidMask?: string
   providerCode: string
   modelName: string
   scenario: string
@@ -134,4 +138,47 @@ export interface AiCallLog {
   errorMessage?: string
   taskId?: number
   createdAt: string
+}
+
+export interface MiniUser {
+  id: number
+  openid: string
+  unionid?: string
+  nickname?: string
+  avatarUrl?: string
+  status: string
+  loginCount: number
+  firstLoginAt?: string
+  lastLoginAt?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface UserAiUsage {
+  userId: number
+  openidMask: string
+  nickname?: string
+  callCount: number
+  successCount: number
+  failedCount: number
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  estimatedCost: number
+  avgDurationMs: number
+}
+
+export interface AnalyticsOverview {
+  totalUsers: number
+  todayLogins: number
+  todayActiveUsers: number
+  totalBehaviorEvents: number
+  totalAiCalls: number
+  totalAiTokens: number
+  totalAiEstimatedCost: number
+  loginTrend: Array<{ date: string; value: number }>
+  aiTrend: Array<{ date: string; value: number }>
+  eventRanking: Array<{ name: string; value: number }>
+  modelUsage: Array<{ name: string; value: number }>
+  hotItems: Array<{ name: string; value: number }>
 }

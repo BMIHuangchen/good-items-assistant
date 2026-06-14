@@ -10,6 +10,7 @@ public class AppProperties {
     private String jwtSecret;
     private final Cos cos = new Cos();
     private final Ai ai = new Ai();
+    private final MiniProgram miniProgram = new MiniProgram();
     private final Diagnostics diagnostics = new Diagnostics();
 
     public String getPublicBaseUrl() { return publicBaseUrl; }
@@ -22,6 +23,7 @@ public class AppProperties {
     public void setJwtSecret(String jwtSecret) { this.jwtSecret = jwtSecret; }
     public Cos getCos() { return cos; }
     public Ai getAi() { return ai; }
+    public MiniProgram getMiniProgram() { return miniProgram; }
     public Diagnostics getDiagnostics() { return diagnostics; }
 
     public static class Cos {
@@ -51,6 +53,22 @@ public class AppProperties {
         public void setKimiApiKey(String kimiApiKey) { this.kimiApiKey = kimiApiKey; }
         public String getDoubaoApiKey() { return doubaoApiKey; }
         public void setDoubaoApiKey(String doubaoApiKey) { this.doubaoApiKey = doubaoApiKey; }
+    }
+
+    public static class MiniProgram {
+        private String appId;
+        private String appSecret;
+        private String jwtSecret;
+        private int tokenExpireDays = 30;
+
+        public String getAppId() { return appId; }
+        public void setAppId(String appId) { this.appId = appId; }
+        public String getAppSecret() { return appSecret; }
+        public void setAppSecret(String appSecret) { this.appSecret = appSecret; }
+        public String getJwtSecret() { return jwtSecret; }
+        public void setJwtSecret(String jwtSecret) { this.jwtSecret = jwtSecret; }
+        public int getTokenExpireDays() { return tokenExpireDays; }
+        public void setTokenExpireDays(int tokenExpireDays) { this.tokenExpireDays = tokenExpireDays; }
     }
 
     public static class Diagnostics {

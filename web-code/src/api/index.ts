@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { AiCallLog, AiFeatureSettings, AiImageAnalysisTask, AiModelConfig, Banner, Category, DashboardStats, GoodItem, MiniProgramConfig, PageResult } from '@/types'
+import type { AiCallLog, AiFeatureSettings, AiImageAnalysisTask, AiModelConfig, AnalyticsOverview, Banner, Category, DashboardStats, GoodItem, MiniProgramConfig, MiniUser, PageResult, UserAiUsage } from '@/types'
 
 export interface LoginResult {
   token: string
@@ -32,4 +32,7 @@ export const api = {
   confirmAiImageTask: (id: number, body: Record<string, any>) => request.post<any, AiImageAnalysisTask>(`/admin/ai/image-tasks/${id}/confirm`, body),
   rejectAiImageTask: (id: number, reason: string) => request.post<any, void>(`/admin/ai/image-tasks/${id}/reject`, { reason }),
   aiCallLogs: (params?: Record<string, any>) => request.get<any, AiCallLog[]>('/admin/ai/call-logs', { params }),
+  users: (params?: Record<string, any>) => request.get<any, MiniUser[]>('/admin/users', { params }),
+  userAiUsage: (params?: Record<string, any>) => request.get<any, UserAiUsage[]>('/admin/users/ai-usage', { params }),
+  analyticsOverview: () => request.get<any, AnalyticsOverview>('/admin/analytics/overview'),
 }

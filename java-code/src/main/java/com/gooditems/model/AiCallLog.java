@@ -6,6 +6,8 @@ import java.time.LocalDateTime;
 public record AiCallLog(
         Long id,
         String requestId,
+        Long userId,
+        String openidMask,
         String providerCode,
         String modelName,
         String scenario,

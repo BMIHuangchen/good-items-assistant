@@ -7,6 +7,7 @@ public record AiImageAnalysisResponse(
         Long taskId,
         String status,
         String ingestMode,
+        Long userId,
         String mediaUrl,
         String providerCode,
         String modelName,

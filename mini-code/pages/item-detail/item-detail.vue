@@ -24,7 +24,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getFavorites, getItem, recordImageIssue, toggleFavorite } from '../../utils/api'
+import { getItem, isFavorited, recordBehavior, recordImageIssue, toggleFavorite } from '../../utils/api'
 
 const item = ref(null)
 const favorited = ref(false)
@@ -33,7 +33,10 @@ const canGoBack = ref(false)
 onLoad(async (query) => {
   canGoBack.value = getCurrentPages().length > 1
   item.value = await getItem(query.id)
-  favorited.value = item.value ? getFavorites().some((saved) => saved.id === item.value.id) : false
+  if (item.value) {
+    recordBehavior('VIEW_ITEM', 'ITEM', item.value.id, '/pages/item-detail/item-detail')
+    favorited.value = await isFavorited(item.value.id).catch(() => false)
+  }
 })
 
 function goBack() {
@@ -44,10 +47,15 @@ function goBack() {
   uni.switchTab({ url: '/pages/home/home' })
 }
 
-function favorite() {
+async function favorite() {
   if (!item.value) return
-  favorited.value = toggleFavorite(item.value)
-  uni.showToast({ title: favorited.value ? '已收藏' : '已取消', icon: 'none' })
+  try {
+    favorited.value = await toggleFavorite(item.value)
+    recordBehavior(favorited.value ? 'FAVORITE_ADD' : 'FAVORITE_REMOVE', 'ITEM', item.value.id, '/pages/item-detail/item-detail')
+    uni.showToast({ title: favorited.value ? '已收藏' : '已取消', icon: 'none' })
+  } catch (error) {
+    uni.showToast({ title: error.message || '请先登录', icon: 'none' })
+  }
 }
 
 function onImageError(url, source) {

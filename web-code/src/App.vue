@@ -44,11 +44,94 @@
           </div>
         </div>
         <div class="panel">
+          <el-alert title="用户与 AI 总览" type="info" :closable="false" />
+          <div class="metric-grid compact">
+            <div class="metric"><span>注册用户</span><strong>{{ analytics?.totalUsers || 0 }}</strong></div>
+            <div class="metric"><span>今日登录</span><strong>{{ analytics?.todayLogins || 0 }}</strong></div>
+            <div class="metric"><span>今日活跃</span><strong>{{ analytics?.todayActiveUsers || 0 }}</strong></div>
+            <div class="metric"><span>AI Token</span><strong>{{ analytics?.totalAiTokens || 0 }}</strong></div>
+            <div class="metric"><span>AI 估算费用</span><strong>¥{{ money(analytics?.totalAiEstimatedCost) }}</strong></div>
+          </div>
+        </div>
+        <div class="panel">
           <el-alert title="上线把控角色" type="success" :closable="false" />
           <el-table :data="roles" style="margin-top: 12px">
             <el-table-column prop="role" label="角色" width="160" />
             <el-table-column prop="focus" label="把控重点" />
             <el-table-column prop="gate" label="上线门禁" />
+          </el-table>
+        </div>
+      </template>
+
+      <template v-if="activeTab === 'analytics'">
+        <div class="metric-grid">
+          <div class="metric"><span>注册用户</span><strong>{{ analytics?.totalUsers || 0 }}</strong></div>
+          <div class="metric"><span>今日登录</span><strong>{{ analytics?.todayLogins || 0 }}</strong></div>
+          <div class="metric"><span>今日活跃用户</span><strong>{{ analytics?.todayActiveUsers || 0 }}</strong></div>
+          <div class="metric"><span>行为事件</span><strong>{{ analytics?.totalBehaviorEvents || 0 }}</strong></div>
+          <div class="metric"><span>AI 调用</span><strong>{{ analytics?.totalAiCalls || 0 }}</strong></div>
+          <div class="metric"><span>估算费用</span><strong>¥{{ money(analytics?.totalAiEstimatedCost) }}</strong></div>
+        </div>
+        <div class="panel-grid">
+          <div class="panel">
+            <h3>登录趋势</h3>
+            <div v-for="point in analytics?.loginTrend || []" :key="point.date" class="bar-row">
+              <span>{{ point.date }}</span><div><i :style="{ width: barWidth(point.value, analytics?.loginTrend || []) }"></i></div><b>{{ point.value }}</b>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>AI 调用趋势</h3>
+            <div v-for="point in analytics?.aiTrend || []" :key="point.date" class="bar-row">
+              <span>{{ point.date }}</span><div><i :style="{ width: barWidth(point.value, analytics?.aiTrend || []) }"></i></div><b>{{ point.value }}</b>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>功能使用排行</h3>
+            <div v-for="item in analytics?.eventRanking || []" :key="item.name" class="rank-row">
+              <span>{{ item.name }}</span><strong>{{ item.value }}</strong>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>模型使用排行</h3>
+            <div v-for="item in analytics?.modelUsage || []" :key="item.name" class="rank-row">
+              <span>{{ item.name }}</span><strong>{{ item.value }}</strong>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>内容浏览热度</h3>
+            <div v-for="item in analytics?.hotItems || []" :key="item.name" class="rank-row">
+              <span>{{ item.name }}</span><strong>{{ item.value }}</strong>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template v-if="activeTab === 'users'">
+        <div class="panel">
+          <el-button type="primary" @click="loadUserData">刷新用户数据</el-button>
+          <el-table :data="users" style="margin-top: 12px">
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="openid" label="OpenID" min-width="220" show-overflow-tooltip />
+            <el-table-column prop="nickname" label="昵称" width="140" />
+            <el-table-column prop="status" label="状态" width="100" />
+            <el-table-column prop="loginCount" label="登录次数" width="100" />
+            <el-table-column prop="firstLoginAt" label="首次登录" width="180" />
+            <el-table-column prop="lastLoginAt" label="最近登录" width="180" />
+          </el-table>
+        </div>
+        <div class="panel" style="margin-top: 16px">
+          <h3>用户 AI Token 与费用</h3>
+          <el-table :data="userAiUsage" style="margin-top: 12px">
+            <el-table-column prop="userId" label="用户 ID" width="90" />
+            <el-table-column prop="openidMask" label="OpenID" width="150" />
+            <el-table-column prop="callCount" label="调用" width="90" />
+            <el-table-column prop="successCount" label="成功" width="90" />
+            <el-table-column prop="failedCount" label="失败" width="90" />
+            <el-table-column prop="totalTokens" label="Token" width="120" />
+            <el-table-column label="估算费用" width="120">
+              <template #default="{ row }">¥{{ money(row.estimatedCost) }}</template>
+            </el-table-column>
+            <el-table-column prop="avgDurationMs" label="平均耗时 ms" width="120" />
           </el-table>
         </div>
       </template>
@@ -157,13 +240,14 @@
             </el-table-column>
             <el-table-column prop="itemTitle" label="AI 标题" min-width="160" />
             <el-table-column prop="providerCode" label="模型" width="90" />
+            <el-table-column prop="openidMask" label="用户" width="130" />
             <el-table-column prop="status" label="状态" width="130" />
             <el-table-column prop="matchedCategoryName" label="推荐分类" width="130" />
             <el-table-column prop="newCategoryName" label="新增分类" width="130" />
             <el-table-column prop="confidence" label="置信度" width="100" />
             <el-table-column label="操作" width="160">
               <template #default="{ row }">
-                <template v-if="row.status === 'PENDING_REVIEW'">
+                <template v-if="['PENDING_REVIEW', 'PENDING_USER_CONFIRM'].includes(row.status)">
                   <el-button link type="primary" @click="openAiTask(row)">确认</el-button>
                   <el-button link type="danger" @click="rejectAiTask(row.id)">驳回</el-button>
                 </template>
@@ -178,6 +262,7 @@
           <el-table :data="aiCallLogs">
             <el-table-column prop="createdAt" label="时间" width="180" />
             <el-table-column prop="providerCode" label="模型" width="90" />
+            <el-table-column prop="openidMask" label="用户" width="130" />
             <el-table-column prop="status" label="状态" width="90" />
             <el-table-column prop="totalTokens" label="Token" width="90" />
             <el-table-column prop="estimatedCost" label="估算费用" width="110" />
@@ -272,7 +357,7 @@
       <el-alert v-if="selectedAiTask?.reviewReason" :title="selectedAiTask.reviewReason" type="warning" :closable="false" />
     </el-form>
     <template #footer>
-      <el-button type="primary" :disabled="selectedAiTask?.status !== 'PENDING_REVIEW'" @click="confirmAiTask">确认入库</el-button>
+      <el-button type="primary" :disabled="!['PENDING_REVIEW', 'PENDING_USER_CONFIRM'].includes(selectedAiTask?.status || '')" @click="confirmAiTask">确认入库</el-button>
     </template>
   </el-dialog>
 </template>
@@ -281,7 +366,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '@/api'
-import type { AiCallLog, AiFeatureSettings, AiImageAnalysisTask, AiModelConfig, Banner, Category, DashboardStats, GoodItem, MiniProgramConfig } from '@/types'
+import type { AiCallLog, AiFeatureSettings, AiImageAnalysisTask, AiModelConfig, AnalyticsOverview, Banner, Category, DashboardStats, GoodItem, MiniProgramConfig, MiniUser, UserAiUsage } from '@/types'
 
 const token = ref(localStorage.getItem('token') || '')
 const activeTab = ref('dashboard')
@@ -297,6 +382,9 @@ const aiSettings = ref<AiFeatureSettings | null>(null)
 const aiModels = ref<AiModelConfig[]>([])
 const aiTasks = ref<AiImageAnalysisTask[]>([])
 const aiCallLogs = ref<AiCallLog[]>([])
+const users = ref<MiniUser[]>([])
+const userAiUsage = ref<UserAiUsage[]>([])
+const analytics = ref<AnalyticsOverview | null>(null)
 
 const itemDialog = ref(false)
 const categoryDialog = ref(false)
@@ -322,6 +410,8 @@ const navItems = [
   { key: 'categories', label: '分类', icon: 'Grid' },
   { key: 'banners', label: 'Banner', icon: 'Picture' },
   { key: 'miniConfig', label: '小程序页面', icon: 'EditPen' },
+  { key: 'analytics', label: '数据看板', icon: 'TrendCharts' },
+  { key: 'users', label: '用户管理', icon: 'User' },
   { key: 'aiSettings', label: 'AI 设置', icon: 'Setting' },
   { key: 'aiTasks', label: 'AI 图片分析', icon: 'Camera' },
   { key: 'diagnostics', label: '上线诊断', icon: 'Monitor' },
@@ -382,7 +472,20 @@ async function loadAll() {
   miniConfig.value = config
   Object.assign(miniConfigForm, config)
   hotWordText.value = config.hotWords?.join(',') || ''
-  await loadAiData()
+  await Promise.all([loadAiData(), loadUserData(), loadAnalytics()])
+}
+
+async function loadUserData() {
+  const [userList, usageList] = await Promise.all([
+    api.users({ pageSize: 100 }),
+    api.userAiUsage({ pageSize: 100 }),
+  ])
+  users.value = userList
+  userAiUsage.value = usageList
+}
+
+async function loadAnalytics() {
+  analytics.value = await api.analyticsOverview()
 }
 
 function openItem(row?: GoodItem) {
@@ -464,6 +567,15 @@ async function loadAiData() {
   aiCallLogs.value = logs
 }
 
+function money(value: unknown) {
+  return Number(value || 0).toFixed(4)
+}
+
+function barWidth(value: number, points: Array<{ value: number }>) {
+  const max = Math.max(1, ...points.map((item) => Number(item.value || 0)))
+  return `${Math.max(4, Math.round((Number(value || 0) / max) * 100))}%`
+}
+
 async function saveAiSettings() {
   await api.updateAiSettings(aiSettingsForm)
   ElMessage.success('AI 设置已保存')
@@ -519,3 +631,67 @@ async function rejectAiTask(id: number) {
 
 onMounted(loadAll)
 </script>
+
+<style scoped>
+.compact {
+  margin-top: 16px;
+}
+
+.panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.panel h3 {
+  margin: 0 0 14px;
+  font-size: 16px;
+  color: #1f2933;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 86px 1fr 48px;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-size: 13px;
+  color: #52616b;
+}
+
+.bar-row div {
+  height: 10px;
+  background: #edf2f7;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar-row i {
+  display: block;
+  height: 100%;
+  background: #2f6b4f;
+  border-radius: inherit;
+}
+
+.bar-row b,
+.rank-row strong {
+  color: #1f2933;
+  font-weight: 700;
+  text-align: right;
+}
+
+.rank-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 0;
+  border-bottom: 1px solid #edf0eb;
+  color: #52616b;
+}
+
+.rank-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

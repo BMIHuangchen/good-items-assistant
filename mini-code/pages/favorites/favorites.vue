@@ -18,8 +18,13 @@ import { getFavorites, recordImageIssue } from '../../utils/api'
 
 const items = ref([])
 
-onShow(() => {
-  items.value = getFavorites()
+onShow(async () => {
+  try {
+    items.value = await getFavorites()
+  } catch (error) {
+    uni.showToast({ title: error.message || '请先登录', icon: 'none' })
+    items.value = []
+  }
 })
 
 function openDetail(id) {

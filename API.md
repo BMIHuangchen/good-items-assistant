@@ -1,6 +1,6 @@
 # 好物展示小助手 API 文档
 
-版本：v1.0.0  
+版本：v1.1.0-user-ai-usage
 定位：个人生活好物内容展示平台，不包含经营性能力。
 
 ## 通用响应
@@ -26,8 +26,16 @@
 | GET | `/api/mini/items` | 分页获取已发布内容，支持 `categoryId`、`keyword`、`pageNum`、`pageSize` |
 | GET | `/api/mini/items/{id}` | 获取内容详情 |
 | GET | `/api/mini/cos` | 获取当前腾讯 COS 图片域名配置 |
+| POST | `/api/mini/auth/login` | 小程序 `wx.login` 后提交 `code`，后端换取 `openid` 并返回用户 token |
+| GET | `/api/mini/auth/me` | 获取当前小程序登录用户 |
 | GET | `/api/mini/ai/settings` | 获取小程序 AI 入口开关和可选模型 |
-| POST | `/api/mini/ai/analyze-image` | 上传图片并选择 `providerCode` 进行 AI 分析，使用 multipart/form-data |
+| POST | `/api/mini/ai/analyze-image` | 登录后上传图片并选择 `providerCode`（Kimi/豆包）进行 AI 分析，使用 multipart/form-data |
+| POST | `/api/mini/ai/image-tasks/{id}/confirm` | 登录用户确认自己的 AI 分析结果，创建内容草稿或公开内容 |
+| GET | `/api/mini/me/favorites` | 登录用户获取服务端收藏 |
+| POST | `/api/mini/me/favorites/{itemId}` | 登录用户收藏内容 |
+| DELETE | `/api/mini/me/favorites/{itemId}` | 登录用户取消收藏 |
+| GET | `/api/mini/me/ai-usage` | 登录用户查看今日/本月 AI Token 与估算费用 |
+| POST | `/api/mini/me/events` | 记录登录用户浏览、收藏、AI 使用等行为事件 |
 
 ## 管理后台接口
 
@@ -46,6 +54,9 @@
 | POST | `/api/admin/ai/image-tasks/{id}/confirm` | 后台确认 AI 分析结果，创建分类/内容草稿或发布内容 |
 | POST | `/api/admin/ai/image-tasks/{id}/reject` | 驳回 AI 图片分析任务 |
 | GET | `/api/admin/ai/call-logs` | AI 调用日志、token、耗时和估算费用 |
+| GET | `/api/admin/users` | 小程序用户列表、登录次数和最近登录 |
+| GET | `/api/admin/users/ai-usage` | 按用户聚合 AI 调用次数、Token 和估算费用 |
+| GET | `/api/admin/analytics/overview` | 后台数据看板：登录、活跃、行为事件、AI 趋势和排行 |
 
 后台接口需要 `Authorization: Bearer {token}`。
 
@@ -73,3 +84,27 @@ COS_SECRET_KEY
 ```
 
 后台模型配置只保存模型名、Base URL、环境变量名和单价，不保存真实 API Key。
+
+## 小程序登录与用户数据
+
+小程序用户体系采用微信静默登录：
+
+```text
+wx.login -> /api/mini/auth/login -> 后端 code2session -> 保存 openid -> 返回小程序用户 token
+```
+
+上线前必须在服务器环境变量中配置：
+
+```text
+WECHAT_MINI_APP_ID
+WECHAT_MINI_APP_SECRET
+MINI_JWT_SECRET
+```
+
+如果本地开发环境未配置微信 AppID/Secret，后端会使用 `dev_openid_*` 兜底，方便本地联调；线上必须配置真实微信环境变量。
+
+## Token 与费用口径
+
+AI Token 用量来自模型接口响应的 `usage` 字段。单次调用费用不依赖模型接口直接返回金额，而是按后台模型配置中的输入/输出单价估算。
+
+页面展示时应使用“估算费用”表述，不能把它说成厂商最终账单金额。
