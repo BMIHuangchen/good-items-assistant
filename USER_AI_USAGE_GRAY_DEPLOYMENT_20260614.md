@@ -16,9 +16,26 @@
 
 ## 当前结论
 
-本分支已完成第一版“小程序用户登录 + 服务端收藏 + Kimi/豆包 AI 识图选择 + 用户 AI Token/费用估算 + 后台用户管理和数据看板”开发。
+本分支已完成第一版“小程序用户登录 + 服务端收藏 + Kimi/豆包 AI 识图选择 + 用户 AI Token/费用估算 + 后台用户管理和数据看板”开发，并已在 2026-06-14 灰度部署到腾讯云服务器。
 
-PR 当前是 Draft。不要在完成线上灰度、数据库迁移和小程序真机验证前合并到 `main`。
+PR 当前是 Draft。不要在完成微信 AppSecret 配置、小程序体验版真机验证前合并到 `main`。
+
+## 线上灰度记录
+
+2026-06-14 已使用服务器 root SSH 密码上传本地部署包并完成灰度部署：
+
+- 部署包上传到服务器 `/root/user-ai-usage-20260614-20260614_161445.zip`，解压到 `/root/user-ai-usage-20260614-20260614_161445/`。
+- 线上数据库已备份，备份文件位于 `/root/good-items-backups/`。
+- 已执行 `database/migration_user_ai_usage_20260614.sql`，新增用户、登录事件、行为事件、收藏表，并为 AI 任务和调用日志补充 `user_id`。
+- 已部署新后端 jar 到 `/opt/good-items/api/good-items-assistant-api.jar`，并重启 `good-items-api.service`。
+- 已部署新后台 dist 到 `/var/www/good-items-admin/`。
+- 本机 `http://127.0.0.1:18080/api/diagnostics/ready`、`/api/mini/ai/settings`、`/api/mini/auth/login` 已返回 200。
+- 公网 `https://zanzanai.top/api/diagnostics/ready`、`/api/mini/ai/settings`、小程序登录、我的用量、后台登录、用户管理、用户 AI 用量、数据看板已验证返回 200。
+- 线上已启用 Kimi 和豆包两个模型入口；公网 `/api/mini/ai/settings` 返回 `kimi` 与 `doubao`。
+
+仍需处理：
+
+- `/etc/good-items-api.env` 当前尚未配置 `WECHAT_MINI_APP_ID` 和 `WECHAT_MINI_APP_SECRET`；后端目前会走本地兜底 openid 逻辑，体验版真机验证微信真实 openid 前必须补齐微信 AppSecret。
 
 ## 本地验证记录
 
