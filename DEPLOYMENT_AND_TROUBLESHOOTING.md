@@ -15,6 +15,7 @@
 - 微信公众平台 downloadFile 合法域名包含：`https://ai-file-1409230880.cos.ap-guangzhou.myqcloud.com`。
 - 小程序代码 `mini-code/utils/api.js` 中 `API_BASE_URL` 指向 `https://zanzanai.top/api`。
 - 小程序代码 `mini-code/utils/api.js` 中 `COS_BASE_URL` 指向腾讯 COS 域名。
+- 用户 AI 用量分支上线前，服务器 `/etc/good-items-api.env` 必须包含 `WECHAT_MINI_APP_ID`、`WECHAT_MINI_APP_SECRET`、`MINI_JWT_SECRET`。
 - 小程序预览不应显示“已启用本地兜底”。
 
 ## 本地构建
@@ -60,6 +61,7 @@ web-code/dist
 /opt/good-items/api/good-items-assistant-api.jar
 /opt/good-items/database/schema.sql
 /opt/good-items/database/seed.sql
+/opt/good-items/database/migration_user_ai_usage_20260614.sql
 /var/www/good-items-admin/
 /etc/nginx/conf.d/zanzanai.conf
 /etc/good-items-api.env
@@ -92,11 +94,55 @@ curl -sk https://zanzanai.top/api/mini/cos
 1. 上传新 jar 到 `/opt/good-items/api/good-items-assistant-api.jar`。
 2. 上传后台 dist 到 `/var/www/good-items-admin/`。
 3. 确认数据库结构和线上数据。
-4. 先让新服务运行在 `18080`。
-5. Nginx 使用 `/gray-api/` 代理到 `http://127.0.0.1:18080/api/`。
-6. AI 图片分析会等待第三方大模型返回，Nginx API 代理的 `proxy_read_timeout` 和 `proxy_send_timeout` 建议不低于 `120s`，避免后端成功但前端收到 504。
-7. 验证灰度接口。
-8. 灰度通过后再切正式 `/api/`。
+4. 用户 AI 用量分支涉及数据库结构变更，执行前必须先备份线上 `good_items_assistant`：
+
+```bash
+mysqldump -uroot -p good_items_assistant > /root/good_items_assistant_backup_$(date +%Y%m%d_%H%M%S).sql
+```
+
+5. 上传并执行迁移脚本：
+
+```bash
+mysql -uroot -p < /opt/good-items/database/migration_user_ai_usage_20260614.sql
+```
+
+6. 更新 `/etc/good-items-api.env`，新增：
+
+```text
+WECHAT_MINI_APP_ID=微信小程序 AppID
+WECHAT_MINI_APP_SECRET=微信小程序 AppSecret
+MINI_JWT_SECRET=至少 32 位随机字符串
+```
+
+7. 先让新服务运行在 `18080`。
+8. Nginx 使用 `/gray-api/` 代理到 `http://127.0.0.1:18080/api/`。
+9. AI 图片分析会等待第三方大模型返回，Nginx API 代理的 `proxy_read_timeout` 和 `proxy_send_timeout` 建议不低于 `120s`，避免后端成功但前端收到 504。
+10. 验证灰度接口。
+11. 灰度通过后再切正式 `/api/`。
+
+### 用户 AI 用量分支灰度验证
+
+灰度后至少验证：
+
+```bash
+curl -sk https://zanzanai.top/api/diagnostics/ready
+curl -sk https://zanzanai.top/api/mini/ai/settings
+```
+
+管理员登录后台后验证：
+
+- “用户管理”页面可打开。
+- “数据看板”页面可打开。
+- “AI 图片分析”任务列表中能看到用户掩码列。
+- “AI 调用日志”中能看到用户掩码、Token 和估算费用。
+
+小程序体验版真机验证：
+
+- 启动后能静默登录。
+- 收藏必须登录后使用，收藏列表来自服务端。
+- AI 图片分析页面可在 Kimi 和豆包之间选择。
+- AI 分析完成后，用户可自行确认生成内容。
+- “我的”页能看到今日/本月 AI Token 和估算费用。
 
 ## 正式切换流程
 
@@ -145,6 +191,13 @@ journalctl -u good-items-api.service -n 80 --no-pager
 1. 将 Nginx `/api/` 的 `proxy_pass` 改回上一版服务端口。
 2. 执行 `nginx -t && systemctl reload nginx`。
 3. 用 `requestId` 查 Nginx 与 Java 日志。
+
+如果数据库迁移后需要回滚：
+
+- 不要直接删除新表或新字段。
+- 先切回上一版后端 jar 和后台 dist。
+- 保留 `mini_users`、`user_login_events`、`user_behavior_events`、`user_favorites` 以及 AI 日志中的 `user_id` 字段，避免破坏已产生的数据。
+- 如必须结构回滚，先从最新备份恢复到独立库验证，再决定是否恢复生产库。
 
 ## 网络与 TLS 排错顺序
 

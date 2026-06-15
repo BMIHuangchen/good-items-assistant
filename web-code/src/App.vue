@@ -44,11 +44,145 @@
           </div>
         </div>
         <div class="panel">
+          <el-alert title="用户与 AI 总览" type="info" :closable="false" />
+          <div class="metric-grid compact">
+            <div class="metric"><span>注册用户</span><strong>{{ analytics?.totalUsers || 0 }}</strong></div>
+            <div class="metric"><span>今日登录</span><strong>{{ analytics?.todayLogins || 0 }}</strong></div>
+            <div class="metric"><span>今日活跃</span><strong>{{ analytics?.todayActiveUsers || 0 }}</strong></div>
+            <div class="metric"><span>AI Token</span><strong>{{ analytics?.totalAiTokens || 0 }}</strong></div>
+            <div class="metric"><span>AI 估算费用</span><strong>¥{{ money(analytics?.totalAiEstimatedCost) }}</strong></div>
+          </div>
+        </div>
+        <div class="panel">
           <el-alert title="上线把控角色" type="success" :closable="false" />
           <el-table :data="roles" style="margin-top: 12px">
             <el-table-column prop="role" label="角色" width="160" />
             <el-table-column prop="focus" label="把控重点" />
             <el-table-column prop="gate" label="上线门禁" />
+          </el-table>
+        </div>
+      </template>
+
+      <template v-if="activeTab === 'analytics'">
+        <div class="metric-grid">
+          <div class="metric"><span>平台算力 Token</span><strong>{{ analytics?.totalAiTokens || 0 }}</strong></div>
+          <div class="metric"><span>平台预估算力成本</span><strong>¥{{ money(analytics?.totalAiEstimatedCost) }}</strong></div>
+          <div class="metric"><span>AI 调用总量</span><strong>{{ analytics?.totalAiCalls || 0 }}</strong></div>
+          <div class="metric"><span>今日活跃用户</span><strong>{{ analytics?.todayActiveUsers || 0 }}</strong></div>
+        </div>
+        <div class="cockpit-grid">
+          <div class="panel chart-panel">
+            <h3>登录与使用驾驶舱</h3>
+            <div ref="loginChartRef" class="chart"></div>
+          </div>
+          <div class="panel chart-panel">
+            <h3>AI 算力消耗趋势</h3>
+            <div ref="aiTokenChartRef" class="chart"></div>
+          </div>
+          <div class="panel chart-panel">
+            <h3>AI 大模型算力消耗</h3>
+            <div ref="modelChartRef" class="chart"></div>
+          </div>
+          <div class="panel chart-panel">
+            <h3>用户算力消耗榜</h3>
+            <div ref="userRankChartRef" class="chart"></div>
+          </div>
+        </div>
+        <div class="metric-grid">
+          <div class="metric"><span>注册用户</span><strong>{{ analytics?.totalUsers || 0 }}</strong></div>
+          <div class="metric"><span>今日登录</span><strong>{{ analytics?.todayLogins || 0 }}</strong></div>
+          <div class="metric"><span>今日活跃用户</span><strong>{{ analytics?.todayActiveUsers || 0 }}</strong></div>
+          <div class="metric"><span>行为事件</span><strong>{{ analytics?.totalBehaviorEvents || 0 }}</strong></div>
+          <div class="metric"><span>AI 调用</span><strong>{{ analytics?.totalAiCalls || 0 }}</strong></div>
+          <div class="metric"><span>估算费用</span><strong>¥{{ money(analytics?.totalAiEstimatedCost) }}</strong></div>
+        </div>
+        <div class="panel-grid">
+          <div class="panel">
+            <h3>登录趋势</h3>
+            <div v-for="point in analytics?.loginTrend || []" :key="point.date" class="bar-row">
+              <span>{{ point.date }}</span><div><i :style="{ width: barWidth(point.value, analytics?.loginTrend || []) }"></i></div><b>{{ point.value }}</b>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>AI 调用趋势</h3>
+            <div v-for="point in analytics?.aiTrend || []" :key="point.date" class="bar-row">
+              <span>{{ point.date }}</span><div><i :style="{ width: barWidth(point.value, analytics?.aiTrend || []) }"></i></div><b>{{ point.value }}</b>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>功能使用排行</h3>
+            <div v-for="item in analytics?.eventRanking || []" :key="item.name" class="rank-row">
+              <span>{{ item.name }}</span><strong>{{ item.value }}</strong>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>模型使用排行</h3>
+            <div v-for="item in analytics?.modelUsage || []" :key="item.name" class="rank-row">
+              <span>{{ item.name }}</span><strong>{{ item.value }}</strong>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>内容浏览热度</h3>
+            <div v-for="item in analytics?.hotItems || []" :key="item.name" class="rank-row">
+              <span>{{ item.name }}</span><strong>{{ item.value }}</strong>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template v-if="activeTab === 'users'">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>会员算力等级</h3>
+            <el-button type="primary" @click="loadUserData">刷新等级</el-button>
+          </div>
+          <el-table :data="computeTiers" style="margin-top: 12px">
+            <el-table-column prop="tierName" label="等级" width="120" />
+            <el-table-column prop="dailyCallLimit" label="每日调用上限" width="130" />
+            <el-table-column prop="dailyTokenLimit" label="每日 Token 上限" width="150" />
+            <el-table-column prop="monthlyTokenLimit" label="每月 Token 上限" width="150" />
+            <el-table-column prop="enabled" label="启用" width="90">
+              <template #default="{ row }">{{ row.enabled ? '是' : '否' }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="100">
+              <template #default="{ row }"><el-button link type="primary" @click="openTier(row)">编辑</el-button></template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <div class="panel">
+          <el-button type="primary" @click="loadUserData">刷新用户数据</el-button>
+          <el-table :data="users" style="margin-top: 12px">
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column label="微信身份" min-width="180">
+              <template #default="{ row }">{{ userIdentity(row) }}</template>
+            </el-table-column>
+            <el-table-column prop="tierCode" label="会员等级" width="110">
+              <template #default="{ row }">{{ tierName(row.tierCode) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="110">
+              <template #default="{ row }"><el-button link type="primary" @click="openUserTier(row)">设置等级</el-button></template>
+            </el-table-column>
+            <el-table-column prop="nickname" label="昵称" width="140" />
+            <el-table-column prop="status" label="状态" width="100" />
+            <el-table-column prop="loginCount" label="登录次数" width="100" />
+            <el-table-column prop="firstLoginAt" label="首次登录" width="180" />
+            <el-table-column prop="lastLoginAt" label="最近登录" width="180" />
+          </el-table>
+        </div>
+        <div class="panel" style="margin-top: 16px">
+          <h3>用户 AI Token 与费用</h3>
+          <el-table :data="userAiUsage" style="margin-top: 12px">
+            <el-table-column prop="userId" label="用户 ID" width="90" />
+            <el-table-column prop="openidMask" label="OpenID" width="150" />
+            <el-table-column prop="tierName" label="会员等级" width="110" />
+            <el-table-column prop="callCount" label="调用" width="90" />
+            <el-table-column prop="successCount" label="成功" width="90" />
+            <el-table-column prop="failedCount" label="失败" width="90" />
+            <el-table-column prop="totalTokens" label="Token" width="120" />
+            <el-table-column label="估算费用" width="120">
+              <template #default="{ row }">¥{{ money(row.estimatedCost) }}</template>
+            </el-table-column>
+            <el-table-column prop="avgDurationMs" label="平均耗时 ms" width="120" />
           </el-table>
         </div>
       </template>
@@ -157,13 +291,14 @@
             </el-table-column>
             <el-table-column prop="itemTitle" label="AI 标题" min-width="160" />
             <el-table-column prop="providerCode" label="模型" width="90" />
+            <el-table-column prop="openidMask" label="用户" width="130" />
             <el-table-column prop="status" label="状态" width="130" />
             <el-table-column prop="matchedCategoryName" label="推荐分类" width="130" />
             <el-table-column prop="newCategoryName" label="新增分类" width="130" />
             <el-table-column prop="confidence" label="置信度" width="100" />
             <el-table-column label="操作" width="160">
               <template #default="{ row }">
-                <template v-if="row.status === 'PENDING_REVIEW'">
+                <template v-if="['PENDING_REVIEW', 'PENDING_USER_CONFIRM'].includes(row.status)">
                   <el-button link type="primary" @click="openAiTask(row)">确认</el-button>
                   <el-button link type="danger" @click="rejectAiTask(row.id)">驳回</el-button>
                 </template>
@@ -178,6 +313,7 @@
           <el-table :data="aiCallLogs">
             <el-table-column prop="createdAt" label="时间" width="180" />
             <el-table-column prop="providerCode" label="模型" width="90" />
+            <el-table-column prop="openidMask" label="用户" width="130" />
             <el-table-column prop="status" label="状态" width="90" />
             <el-table-column prop="totalTokens" label="Token" width="90" />
             <el-table-column prop="estimatedCost" label="估算费用" width="110" />
@@ -241,6 +377,33 @@
     <template #footer><el-button type="primary" @click="saveBanner">保存</el-button></template>
   </el-dialog>
 
+  <el-dialog v-model="tierDialog" title="会员算力等级" width="560px">
+    <el-form :model="tierForm" label-position="top">
+      <el-form-item label="等级名称"><el-input v-model="tierForm.tierName" /></el-form-item>
+      <el-form-item label="每日调用上限"><el-input-number v-model="tierForm.dailyCallLimit" :min="0" :max="999999" /></el-form-item>
+      <el-form-item label="每日 Token 上限"><el-input-number v-model="tierForm.dailyTokenLimit" :min="0" :max="999999999" /></el-form-item>
+      <el-form-item label="每月 Token 上限"><el-input-number v-model="tierForm.monthlyTokenLimit" :min="0" :max="999999999" /></el-form-item>
+      <el-form-item label="启用"><el-switch v-model="tierForm.enabled" /></el-form-item>
+    </el-form>
+    <template #footer><el-button type="primary" @click="saveTier">保存等级</el-button></template>
+  </el-dialog>
+
+  <el-dialog v-model="userTierDialog" title="设置用户会员等级" width="560px">
+    <el-form :model="userTierForm" label-position="top">
+      <el-form-item label="微信身份"><el-input :model-value="userIdentity(selectedUser || {})" disabled /></el-form-item>
+      <el-form-item label="会员等级">
+        <el-select v-model="userTierForm.tierCode" style="width: 100%">
+          <el-option v-for="tier in computeTiers" :key="tier.tierCode" :label="tier.tierName" :value="tier.tierCode" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="单独每日调用上限"><el-input-number v-model="userTierForm.customDailyCallLimit" :min="0" :max="999999" /></el-form-item>
+      <el-form-item label="单独每日 Token 上限"><el-input-number v-model="userTierForm.customDailyTokenLimit" :min="0" :max="999999999" /></el-form-item>
+      <el-form-item label="单独每月 Token 上限"><el-input-number v-model="userTierForm.customMonthlyTokenLimit" :min="0" :max="999999999" /></el-form-item>
+      <el-alert title="单独额度为空时使用会员等级默认额度；填 0 表示不按该项限制。" type="info" :closable="false" />
+    </el-form>
+    <template #footer><el-button type="primary" @click="saveUserTier">保存用户等级</el-button></template>
+  </el-dialog>
+
   <el-dialog v-model="aiModelDialog" title="AI 模型配置" width="680px">
     <el-form :model="aiModelForm" label-position="top">
       <el-form-item label="显示名称"><el-input v-model="aiModelForm.displayName" /></el-form-item>
@@ -272,16 +435,17 @@
       <el-alert v-if="selectedAiTask?.reviewReason" :title="selectedAiTask.reviewReason" type="warning" :closable="false" />
     </el-form>
     <template #footer>
-      <el-button type="primary" :disabled="selectedAiTask?.status !== 'PENDING_REVIEW'" @click="confirmAiTask">确认入库</el-button>
+      <el-button type="primary" :disabled="!['PENDING_REVIEW', 'PENDING_USER_CONFIRM'].includes(selectedAiTask?.status || '')" @click="confirmAiTask">确认入库</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import { api } from '@/api'
-import type { AiCallLog, AiFeatureSettings, AiImageAnalysisTask, AiModelConfig, Banner, Category, DashboardStats, GoodItem, MiniProgramConfig } from '@/types'
+import type { AiCallLog, AiFeatureSettings, AiImageAnalysisTask, AiModelConfig, AnalyticsOverview, Banner, Category, ComputeTier, DashboardStats, GoodItem, MiniProgramConfig, MiniUser, UserAiUsage } from '@/types'
 
 const token = ref(localStorage.getItem('token') || '')
 const activeTab = ref('dashboard')
@@ -297,6 +461,15 @@ const aiSettings = ref<AiFeatureSettings | null>(null)
 const aiModels = ref<AiModelConfig[]>([])
 const aiTasks = ref<AiImageAnalysisTask[]>([])
 const aiCallLogs = ref<AiCallLog[]>([])
+const users = ref<MiniUser[]>([])
+const userAiUsage = ref<UserAiUsage[]>([])
+const computeTiers = ref<ComputeTier[]>([])
+const analytics = ref<AnalyticsOverview | null>(null)
+const loginChartRef = ref<HTMLDivElement | null>(null)
+const aiTokenChartRef = ref<HTMLDivElement | null>(null)
+const modelChartRef = ref<HTMLDivElement | null>(null)
+const userRankChartRef = ref<HTMLDivElement | null>(null)
+const charts: echarts.ECharts[] = []
 
 const itemDialog = ref(false)
 const categoryDialog = ref(false)
@@ -311,6 +484,12 @@ const aiModelForm = reactive<Partial<AiModelConfig>>({})
 const aiTaskDialog = ref(false)
 const selectedAiTask = ref<AiImageAnalysisTask | null>(null)
 const aiTaskForm = reactive<Record<string, any>>({})
+const tierDialog = ref(false)
+const selectedTier = ref<ComputeTier | null>(null)
+const tierForm = reactive<Partial<ComputeTier>>({})
+const userTierDialog = ref(false)
+const selectedUser = ref<MiniUser | null>(null)
+const userTierForm = reactive<Record<string, any>>({})
 const aiTaskTagText = ref('')
 const tagText = ref('')
 const hotWordText = ref('')
@@ -322,6 +501,8 @@ const navItems = [
   { key: 'categories', label: '分类', icon: 'Grid' },
   { key: 'banners', label: 'Banner', icon: 'Picture' },
   { key: 'miniConfig', label: '小程序页面', icon: 'EditPen' },
+  { key: 'analytics', label: '数据看板', icon: 'TrendCharts' },
+  { key: 'users', label: '用户管理', icon: 'User' },
   { key: 'aiSettings', label: 'AI 设置', icon: 'Setting' },
   { key: 'aiTasks', label: 'AI 图片分析', icon: 'Camera' },
   { key: 'diagnostics', label: '上线诊断', icon: 'Monitor' },
@@ -382,7 +563,24 @@ async function loadAll() {
   miniConfig.value = config
   Object.assign(miniConfigForm, config)
   hotWordText.value = config.hotWords?.join(',') || ''
-  await loadAiData()
+  await Promise.all([loadAiData(), loadUserData(), loadAnalytics()])
+}
+
+async function loadUserData() {
+  const [userList, usageList, tierList] = await Promise.all([
+    api.users({ pageSize: 100 }),
+    api.userAiUsage({ pageSize: 100 }),
+    api.computeTiers(),
+  ])
+  users.value = userList
+  userAiUsage.value = usageList
+  computeTiers.value = tierList
+}
+
+async function loadAnalytics() {
+  analytics.value = await api.analyticsOverview()
+  await nextTick()
+  renderCharts()
 }
 
 function openItem(row?: GoodItem) {
@@ -428,6 +626,55 @@ async function saveBanner() {
   await loadAll()
 }
 
+function tierName(tierCode?: string) {
+  return computeTiers.value.find((tier) => tier.tierCode === tierCode)?.tierName || tierCode || '未分级'
+}
+
+function openidMask(openid?: string) {
+  if (!openid || openid.length <= 8) return '****'
+  return `${openid.slice(0, 4)}****${openid.slice(-4)}`
+}
+
+function userIdentity(row: Partial<MiniUser> | Partial<UserAiUsage> | Record<string, any>) {
+  const current = row as Record<string, any>
+  return current.nickname || current.openidMask || openidMask(current.openid)
+}
+
+function openTier(row: ComputeTier) {
+  selectedTier.value = row
+  Object.assign(tierForm, row)
+  tierDialog.value = true
+}
+
+async function saveTier() {
+  if (!selectedTier.value) return
+  await api.updateComputeTier(selectedTier.value.tierCode, tierForm)
+  ElMessage.success('会员算力等级已保存')
+  tierDialog.value = false
+  await loadUserData()
+  await loadAnalytics()
+}
+
+function openUserTier(row: MiniUser) {
+  selectedUser.value = row
+  Object.assign(userTierForm, {
+    tierCode: row.tierCode || computeTiers.value[0]?.tierCode || 'LEVEL_1',
+    customDailyTokenLimit: row.customDailyTokenLimit ?? undefined,
+    customMonthlyTokenLimit: row.customMonthlyTokenLimit ?? undefined,
+    customDailyCallLimit: row.customDailyCallLimit ?? undefined,
+  })
+  userTierDialog.value = true
+}
+
+async function saveUserTier() {
+  if (!selectedUser.value) return
+  await api.updateUserTier(selectedUser.value.id, userTierForm)
+  ElMessage.success('用户会员等级已保存')
+  userTierDialog.value = false
+  await loadUserData()
+  await loadAnalytics()
+}
+
 async function saveMiniConfig() {
   const body = {
     ...miniConfigForm,
@@ -462,6 +709,60 @@ async function loadAiData() {
   aiModels.value = models
   aiTasks.value = tasks
   aiCallLogs.value = logs
+}
+
+function money(value: unknown) {
+  return Number(value || 0).toFixed(4)
+}
+
+function barWidth(value: number, points: Array<{ value: number }>) {
+  const max = Math.max(1, ...points.map((item) => Number(item.value || 0)))
+  return `${Math.max(4, Math.round((Number(value || 0) / max) * 100))}%`
+}
+
+function chart(refEl: HTMLDivElement | null) {
+  if (!refEl) return null
+  const existed = echarts.getInstanceByDom(refEl)
+  if (existed) return existed
+  const instance = echarts.init(refEl)
+  charts.push(instance)
+  return instance
+}
+
+function renderCharts() {
+  const data = analytics.value
+  if (!data || activeTab.value !== 'analytics') return
+  chart(loginChartRef.value)?.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: 42, right: 18, top: 28, bottom: 34 },
+    xAxis: { type: 'category', data: data.loginTrend.map((item) => item.date) },
+    yAxis: { type: 'value' },
+    series: [{ name: '登录', type: 'line', smooth: true, areaStyle: {}, data: data.loginTrend.map((item) => item.value), color: '#2f6b4f' }],
+  })
+  chart(aiTokenChartRef.value)?.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: 54, right: 18, top: 28, bottom: 34 },
+    xAxis: { type: 'category', data: (data.aiTokenTrend || []).map((item) => item.date) },
+    yAxis: { type: 'value' },
+    series: [{ name: 'Token', type: 'bar', data: (data.aiTokenTrend || []).map((item) => item.value), color: '#4f7c8a' }],
+  })
+  chart(modelChartRef.value)?.setOption({
+    tooltip: { trigger: 'item' },
+    legend: { bottom: 0 },
+    series: [{
+      name: '模型算力',
+      type: 'pie',
+      radius: ['42%', '68%'],
+      data: (data.modelComputeUsage || []).map((item) => ({ name: item.providerCode, value: item.totalTokens })),
+    }],
+  })
+  chart(userRankChartRef.value)?.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: 72, right: 18, top: 18, bottom: 26 },
+    xAxis: { type: 'value' },
+    yAxis: { type: 'category', data: (data.userComputeRanking || []).map((item) => userIdentity(item)).reverse() },
+    series: [{ name: 'Token', type: 'bar', data: (data.userComputeRanking || []).map((item) => item.totalTokens).reverse(), color: '#8a6f4f' }],
+  })
 }
 
 async function saveAiSettings() {
@@ -517,5 +818,104 @@ async function rejectAiTask(id: number) {
   await loadAiData()
 }
 
+watch(activeTab, async (tab) => {
+  if (tab === 'analytics') {
+    await loadAnalytics()
+  }
+})
+
+window.addEventListener('resize', () => charts.forEach((instance) => instance.resize()))
+
+onBeforeUnmount(() => {
+  charts.forEach((instance) => instance.dispose())
+})
+
 onMounted(loadAll)
 </script>
+
+<style scoped>
+.compact {
+  margin-top: 16px;
+}
+
+.panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.cockpit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.chart-panel {
+  min-height: 330px;
+}
+
+.chart {
+  width: 100%;
+  height: 270px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.panel h3 {
+  margin: 0 0 14px;
+  font-size: 16px;
+  color: #1f2933;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 86px 1fr 48px;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-size: 13px;
+  color: #52616b;
+}
+
+.bar-row div {
+  height: 10px;
+  background: #edf2f7;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar-row i {
+  display: block;
+  height: 100%;
+  background: #2f6b4f;
+  border-radius: inherit;
+}
+
+.bar-row b,
+.rank-row strong {
+  color: #1f2933;
+  font-weight: 700;
+  text-align: right;
+}
+
+.rank-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 0;
+  border-bottom: 1px solid #edf0eb;
+  color: #52616b;
+}
+
+.rank-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

@@ -35,7 +35,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getHomeData, recordImageIssue } from '../../utils/api'
+import { getHomeData, recordBehavior, recordImageIssue } from '../../utils/api'
 
 const banners = ref([])
 const items = ref([])
@@ -51,6 +51,7 @@ onLoad(async () => {
 })
 
 function openDetail(id) {
+  recordBehavior('OPEN_ITEM', 'ITEM', id, '/pages/home/home')
   uni.navigateTo({ url: `/pages/item-detail/item-detail?id=${id}` })
 }
 

@@ -8,7 +8,7 @@ WorkingDirectory=/opt/good-items/api
 ExecStart=/usr/bin/java -jar /opt/good-items/api/good-items-assistant-api.jar
 Restart=always
 RestartSec=5
-Environment=SERVER_PORT=8080
+Environment=SERVER_PORT=18080
 Environment=PUBLIC_BASE_URL=https://zanzanai.top
 Environment=DB_URL=jdbc:mysql://127.0.0.1:3306/good_items_assistant?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
 Environment=DB_USERNAME=good_items

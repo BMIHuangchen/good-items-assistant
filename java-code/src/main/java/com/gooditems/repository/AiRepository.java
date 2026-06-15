@@ -100,6 +100,14 @@ public class AiRepository {
         return value == null ? 0 : value;
     }
 
+    public int todayCallCount(Long userId) {
+        Integer value = jdbc.queryForObject("""
+                select count(*) from ai_call_logs
+                where scenario = 'IMAGE_CLASSIFY' and user_id = ? and created_at >= curdate()
+                """, Integer.class, userId);
+        return value == null ? 0 : value;
+    }
+
     public String prompt(String scenario) {
         return jdbc.query("select prompt_text from ai_prompt_templates where scenario = ? and enabled = 1", (rs, rowNum) -> rs.getString(1), scenario)
                 .stream()
@@ -134,35 +142,36 @@ public class AiRepository {
                 .orElseThrow(() -> new ApiException(404, "图片资源不存在"));
     }
 
-    public AiImageAnalysisTask createTask(String requestId, Long mediaAssetId, String providerCode, String modelName,
+    public AiImageAnalysisTask createTask(String requestId, Long userId, Long mediaAssetId, String providerCode, String modelName,
                                           String status, String ingestMode, Map<String, Object> result, String reviewReason) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbc.update(connection -> {
             PreparedStatement ps = connection.prepareStatement("""
-                    insert into ai_image_analysis_tasks(request_id, media_asset_id, provider_code, model_name, status,
+                    insert into ai_image_analysis_tasks(request_id, user_id, media_asset_id, provider_code, model_name, status,
                     ingest_mode, item_title, summary, experience, tags_json, decision, matched_category_id,
                     new_category_name, new_category_slug, new_category_description, confidence, reason, review_reason, raw_result_json)
-                    values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, requestId);
-            ps.setLong(2, mediaAssetId);
-            ps.setString(3, providerCode);
-            ps.setString(4, modelName);
-            ps.setString(5, status);
-            ps.setString(6, ingestMode);
-            ps.setString(7, string(result.get("itemTitle")));
-            ps.setString(8, string(result.get("summary")));
-            ps.setString(9, string(result.get("experience")));
-            ps.setString(10, json(result.get("tags")));
-            ps.setString(11, string(result.get("decision")));
-            ps.setObject(12, longValue(result.get("categoryId")));
-            ps.setString(13, string(result.get("newCategoryName")));
-            ps.setString(14, string(result.get("newCategorySlug")));
-            ps.setString(15, string(result.get("newCategoryDescription")));
-            ps.setBigDecimal(16, decimalValue(result.get("confidence")));
-            ps.setString(17, string(result.get("reason")));
-            ps.setString(18, reviewReason);
-            ps.setString(19, json(result));
+            ps.setObject(2, userId);
+            ps.setLong(3, mediaAssetId);
+            ps.setString(4, providerCode);
+            ps.setString(5, modelName);
+            ps.setString(6, status);
+            ps.setString(7, ingestMode);
+            ps.setString(8, string(result.get("itemTitle")));
+            ps.setString(9, string(result.get("summary")));
+            ps.setString(10, string(result.get("experience")));
+            ps.setString(11, json(result.get("tags")));
+            ps.setString(12, string(result.get("decision")));
+            ps.setObject(13, longValue(result.get("categoryId")));
+            ps.setString(14, string(result.get("newCategoryName")));
+            ps.setString(15, string(result.get("newCategorySlug")));
+            ps.setString(16, string(result.get("newCategoryDescription")));
+            ps.setBigDecimal(17, decimalValue(result.get("confidence")));
+            ps.setString(18, string(result.get("reason")));
+            ps.setString(19, reviewReason);
+            ps.setString(20, json(result));
             return ps;
         }, keyHolder);
         return task(keyHolder.getKey().longValue());
@@ -195,27 +204,33 @@ public class AiRepository {
                 reason == null || reason.isBlank() ? "后台驳回" : reason, taskId);
     }
 
-    public void createCallLog(String requestId, String providerCode, String modelName, String scenario, String status,
+    public void createCallLog(String requestId, Long userId, String providerCode, String modelName, String scenario, String status,
                               int promptTokens, int completionTokens, int totalTokens, BigDecimal estimatedCost,
                               int durationMs, String errorMessage, Long taskId) {
         jdbc.update("""
-                insert into ai_call_logs(request_id, provider_code, model_name, scenario, status, prompt_tokens,
+                insert into ai_call_logs(request_id, user_id, provider_code, model_name, scenario, status, prompt_tokens,
                 completion_tokens, total_tokens, estimated_cost, duration_ms, error_message, task_id)
-                values(?,?,?,?,?,?,?,?,?,?,?,?)
-                """, requestId, providerCode, modelName, scenario, status, promptTokens, completionTokens,
+                values(?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """, requestId, userId, providerCode, modelName, scenario, status, promptTokens, completionTokens,
                 totalTokens, estimatedCost, durationMs, errorMessage, taskId);
     }
 
     public List<AiCallLog> callLogs(int pageSize) {
-        return jdbc.query("select * from ai_call_logs order by created_at desc, id desc limit ?", callLogMapper(), pageSize);
+        return jdbc.query("""
+                select l.*, u.openid
+                from ai_call_logs l
+                left join mini_users u on u.id = l.user_id
+                order by l.created_at desc, l.id desc limit ?
+                """, callLogMapper(), pageSize);
     }
 
     private String taskSql() {
         return """
-                select t.*, m.public_url media_url, c.name matched_category_name
+                select t.*, m.public_url media_url, c.name matched_category_name, u.openid
                 from ai_image_analysis_tasks t
                 left join media_assets m on m.id = t.media_asset_id
                 left join content_categories c on c.id = t.matched_category_id
+                left join mini_users u on u.id = t.user_id
                 """;
     }
 
@@ -243,6 +258,7 @@ public class AiRepository {
 
     private RowMapper<AiImageAnalysisTask> taskMapper() {
         return (rs, rowNum) -> new AiImageAnalysisTask(rs.getLong("id"), rs.getString("request_id"),
+                longColumn(rs, "user_id"), mask(rs.getString("openid")),
                 rs.getLong("media_asset_id"), rs.getString("media_url"), rs.getString("provider_code"),
                 rs.getString("model_name"), rs.getString("status"), rs.getString("ingest_mode"),
                 rs.getString("item_title"), rs.getString("summary"), rs.getString("experience"),
@@ -255,6 +271,7 @@ public class AiRepository {
 
     private RowMapper<AiCallLog> callLogMapper() {
         return (rs, rowNum) -> new AiCallLog(rs.getLong("id"), rs.getString("request_id"),
+                longColumn(rs, "user_id"), mask(rs.getString("openid")),
                 rs.getString("provider_code"), rs.getString("model_name"), rs.getString("scenario"),
                 rs.getString("status"), rs.getInt("prompt_tokens"), rs.getInt("completion_tokens"),
                 rs.getInt("total_tokens"), rs.getBigDecimal("estimated_cost"), rs.getInt("duration_ms"),
@@ -332,5 +349,12 @@ public class AiRepository {
 
     private String trimSlash(String value) {
         return value != null && value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
+    }
+
+    private String mask(String openid) {
+        if (openid == null || openid.length() <= 8) {
+            return null;
+        }
+        return openid.substring(0, 4) + "****" + openid.substring(openid.length() - 4);
     }
 }

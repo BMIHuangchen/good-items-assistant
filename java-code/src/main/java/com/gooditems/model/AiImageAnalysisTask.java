@@ -7,6 +7,8 @@ import java.util.List;
 public record AiImageAnalysisTask(
         Long id,
         String requestId,
+        Long userId,
+        String openidMask,
         Long mediaAssetId,
         String mediaUrl,
         String providerCode,

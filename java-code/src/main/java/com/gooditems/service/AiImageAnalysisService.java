@@ -13,8 +13,10 @@ import com.gooditems.model.AiModelConfig;
 import com.gooditems.model.Category;
 import com.gooditems.model.GoodItem;
 import com.gooditems.model.MediaAsset;
+import com.gooditems.model.UserComputeQuota;
 import com.gooditems.repository.AiRepository;
 import com.gooditems.repository.ContentRepository;
+import com.gooditems.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -31,13 +33,16 @@ public class AiImageAnalysisService {
     private static final String SCENARIO = "IMAGE_CLASSIFY";
     private final AiRepository aiRepository;
     private final ContentRepository contentRepository;
+    private final UserRepository userRepository;
     private final MediaStorageService mediaStorageService;
     private final AiProviderClient providerClient;
 
     public AiImageAnalysisService(AiRepository aiRepository, ContentRepository contentRepository,
-                                  MediaStorageService mediaStorageService, AiProviderClient providerClient) {
+                                  UserRepository userRepository, MediaStorageService mediaStorageService,
+                                  AiProviderClient providerClient) {
         this.aiRepository = aiRepository;
         this.contentRepository = contentRepository;
+        this.userRepository = userRepository;
         this.mediaStorageService = mediaStorageService;
         this.providerClient = providerClient;
     }
@@ -51,7 +56,7 @@ public class AiImageAnalysisService {
                 settings.autoPublishEnabled(), settings.maxImageSizeMb(), models);
     }
 
-    public AiImageAnalysisResponse analyze(String providerCode, MultipartFile file, String requestId) {
+    public AiImageAnalysisResponse analyze(Long userId, String providerCode, MultipartFile file, String requestId) {
         AiFeatureSettings settings = aiRepository.settings();
         if (!Boolean.TRUE.equals(settings.aiEnabled())) {
             throw new ApiException(403, "AI 图片分析入口暂未开启");
@@ -62,6 +67,7 @@ public class AiImageAnalysisService {
         if (aiRepository.todayCallCount() >= settings.dailyCallLimit()) {
             throw new ApiException(429, "今日 AI 调用次数已达上限，请明天再试");
         }
+        ensureUserQuota(userId);
         AiModelConfig model = aiRepository.model(providerCode);
         if (!Boolean.TRUE.equals(model.enabled())) {
             throw new ApiException(403, "当前 AI 模型未启用");
@@ -75,31 +81,34 @@ public class AiImageAnalysisService {
                     aiRepository.prompt(SCENARIO), contentRepository.publicCategories());
             Map<String, Object> result = resultMap(analysis);
             String reviewReason = reviewReason(settings, analysis);
-            boolean canAutoIngest = Boolean.TRUE.equals(settings.autoIngestEnabled()) && reviewReason == null;
-            task = aiRepository.createTask(requestId, media.id(), model.providerCode(), model.modelName(),
-                    canAutoIngest ? "ANALYZED" : "PENDING_REVIEW", canAutoIngest ? "AUTO" : "MANUAL", result, reviewReason);
-            aiRepository.createCallLog(requestId, model.providerCode(), model.modelName(), SCENARIO, "SUCCESS",
+            task = aiRepository.createTask(requestId, userId, media.id(), model.providerCode(), model.modelName(),
+                    "PENDING_USER_CONFIRM", "USER", result, reviewReason);
+            aiRepository.createCallLog(requestId, userId, model.providerCode(), model.modelName(), SCENARIO, "SUCCESS",
                     analysis.promptTokens(), analysis.completionTokens(), analysis.totalTokens(),
                     cost(model, analysis.promptTokens(), analysis.completionTokens()),
                     elapsed(started), null, task.id());
-            if (canAutoIngest) {
-                task = autoIngest(task, settings);
-            }
             return response(task);
         } catch (ApiException e) {
-            aiRepository.createCallLog(requestId, model.providerCode(), model.modelName(), SCENARIO, "FAILED",
+            aiRepository.createCallLog(requestId, userId, model.providerCode(), model.modelName(), SCENARIO, "FAILED",
                     0, 0, 0, BigDecimal.ZERO, elapsed(started), e.getMessage(), task == null ? null : task.id());
             throw e;
         } catch (Exception e) {
-            aiRepository.createCallLog(requestId, model.providerCode(), model.modelName(), SCENARIO, "FAILED",
+            aiRepository.createCallLog(requestId, userId, model.providerCode(), model.modelName(), SCENARIO, "FAILED",
                     0, 0, 0, BigDecimal.ZERO, elapsed(started), e.getMessage(), task == null ? null : task.id());
             throw new ApiException(502, "AI 图片分析失败，请稍后再试");
         }
     }
 
     public AiImageAnalysisTask confirm(Long taskId, AiConfirmTaskRequest request) {
+        return confirm(taskId, request, null);
+    }
+
+    public AiImageAnalysisTask confirm(Long taskId, AiConfirmTaskRequest request, Long userId) {
         AiImageAnalysisTask task = aiRepository.task(taskId);
-        if (!List.of("PENDING_REVIEW", "ANALYZED").contains(task.status())) {
+        if (userId != null && !userId.equals(task.userId())) {
+            throw new ApiException(403, "只能确认自己的 AI 分析结果");
+        }
+        if (!List.of("PENDING_REVIEW", "ANALYZED", "PENDING_USER_CONFIRM").contains(task.status())) {
             throw new ApiException(400, "当前任务状态不能确认入库");
         }
         Long categoryId = resolveCategoryId(task, request);
@@ -114,7 +123,7 @@ public class AiImageAnalysisService {
                 Boolean.TRUE.equals(request.publish()) ? "PUBLISHED" : "DRAFT",
                 0
         ));
-        aiRepository.markTaskIngested(taskId, "CONFIRMED", "MANUAL",
+        aiRepository.markTaskIngested(taskId, userId == null ? "CONFIRMED" : "USER_CONFIRMED", userId == null ? "MANUAL" : "USER",
                 Boolean.TRUE.equals(request.createNewCategory()) ? categoryId : null, item.id());
         return aiRepository.task(taskId);
     }
@@ -124,7 +133,7 @@ public class AiImageAnalysisService {
     }
 
     public AiImageAnalysisResponse response(AiImageAnalysisTask task) {
-        return new AiImageAnalysisResponse(task.id(), task.status(), task.ingestMode(), task.mediaUrl(),
+        return new AiImageAnalysisResponse(task.id(), task.status(), task.ingestMode(), task.userId(), task.mediaUrl(),
                 task.providerCode(), task.modelName(), task.itemTitle(), task.summary(), task.experience(),
                 task.tags(), task.decision(), task.matchedCategoryId(), task.matchedCategoryName(),
                 task.newCategoryName(), task.confidence(), task.reason(), task.createdItemId(),
@@ -221,6 +230,19 @@ public class AiImageAnalysisService {
         BigDecimal prompt = model.promptPricePer1k().multiply(BigDecimal.valueOf(promptTokens)).divide(BigDecimal.valueOf(1000), 6, RoundingMode.HALF_UP);
         BigDecimal completion = model.completionPricePer1k().multiply(BigDecimal.valueOf(completionTokens)).divide(BigDecimal.valueOf(1000), 6, RoundingMode.HALF_UP);
         return prompt.add(completion);
+    }
+
+    private void ensureUserQuota(Long userId) {
+        UserComputeQuota quota = userRepository.userComputeQuota(userId);
+        if (quota.dailyCallLimit() != null && quota.dailyCallLimit() > 0 && quota.todayCalls() >= quota.dailyCallLimit()) {
+            throw new ApiException(429, "今日 AI 调用次数已达到会员上限，请明天再试");
+        }
+        if (quota.dailyTokenLimit() != null && quota.dailyTokenLimit() > 0 && quota.todayTokens() >= quota.dailyTokenLimit()) {
+            throw new ApiException(429, "今日 AI 算力额度已用完，请明天再试");
+        }
+        if (quota.monthlyTokenLimit() != null && quota.monthlyTokenLimit() > 0 && quota.monthTokens() >= quota.monthlyTokenLimit()) {
+            throw new ApiException(429, "本月 AI 算力额度已用完，请下月再试");
+        }
     }
 
     private byte[] bytes(MultipartFile file) {

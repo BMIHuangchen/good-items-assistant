@@ -1,5 +1,56 @@
 const API_BASE_URL = 'https://zanzanai.top/api'
 const COS_BASE_URL = 'https://ai-file-1409230880.cos.ap-guangzhou.myqcloud.com'
+const TOKEN_KEY = 'miniUserToken'
+const USER_KEY = 'miniUserProfile'
+
+export function getToken() {
+  return uni.getStorageSync(TOKEN_KEY) || ''
+}
+
+export function getCurrentUser() {
+  return uni.getStorageSync(USER_KEY) || null
+}
+
+export function clearLogin() {
+  uni.removeStorageSync(TOKEN_KEY)
+  uni.removeStorageSync(USER_KEY)
+}
+
+function authHeader() {
+  const token = getToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+export async function ensureLogin() {
+  const existing = getCurrentUser()
+  if (getToken() && existing) {
+    return existing
+  }
+  return new Promise((resolve, reject) => {
+    uni.login({
+      provider: 'weixin',
+      success: async (res) => {
+        try {
+          const data = await post('/mini/auth/login', { code: res.code || `dev-${Date.now()}` }, false)
+          uni.setStorageSync(TOKEN_KEY, data.token)
+          uni.setStorageSync(USER_KEY, data.user)
+          resolve(data.user)
+        } catch (error) {
+          reject(error)
+        }
+      },
+      fail: (err) => {
+        const error = {
+          requestId: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          message: err?.errMsg || '微信登录失败',
+          path: 'wx.login'
+        }
+        uni.setStorageSync('lastNetworkIssue', error)
+        reject(error)
+      }
+    })
+  })
+}
 
 export const fallbackCategories = [
   { id: 4, name: '家居', slug: 'home', description: '适合家里日常使用的小物件', coverImage: `${COS_BASE_URL}/good-items/categories/home.jpg` },
@@ -106,7 +157,7 @@ export const fallbackConfig = {
   meDescription: '这里用于浏览个人生活好物记录，是非经营性的内容展示工具。'
 }
 
-export function request(path, data = {}) {
+export function request(path, data = {}, requireAuth = false) {
   return new Promise((resolve, reject) => {
     const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
     uni.request({
@@ -114,7 +165,70 @@ export function request(path, data = {}) {
       method: 'GET',
       data,
       timeout: 8000,
-      header: { 'X-Request-Id': requestId },
+      header: { 'X-Request-Id': requestId, ...(requireAuth ? authHeader() : {}) },
+      success(res) {
+        const body = res.data || {}
+        if (res.statusCode === 200 && body.code === 200) {
+          resolve(body.data)
+          return
+        }
+        if (res.statusCode === 401 || body.code === 401) {
+          uni.removeStorageSync(TOKEN_KEY)
+          uni.removeStorageSync(USER_KEY)
+        }
+        const error = { requestId: body.requestId || requestId, message: body.message || '接口返回异常', path }
+        uni.setStorageSync('lastNetworkIssue', error)
+        reject(error)
+      },
+      fail(err) {
+        const error = { requestId, message: err.errMsg || '网络连接失败', path }
+        uni.setStorageSync('lastNetworkIssue', error)
+        reject(error)
+      }
+    })
+  })
+}
+
+export function post(path, data = {}, requireAuth = true) {
+  return new Promise((resolve, reject) => {
+    const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+    uni.request({
+      url: `${API_BASE_URL}${path}`,
+      method: 'POST',
+      data,
+      timeout: 120000,
+      header: { 'X-Request-Id': requestId, 'Content-Type': 'application/json', ...(requireAuth ? authHeader() : {}) },
+      success(res) {
+        const body = res.data || {}
+        if (res.statusCode === 200 && body.code === 200) {
+          resolve(body.data)
+          return
+        }
+        if (res.statusCode === 401 || body.code === 401) {
+          uni.removeStorageSync(TOKEN_KEY)
+          uni.removeStorageSync(USER_KEY)
+        }
+        const error = { requestId: body.requestId || requestId, message: body.message || '接口返回异常', path }
+        uni.setStorageSync('lastNetworkIssue', error)
+        reject(error)
+      },
+      fail(err) {
+        const error = { requestId, message: err.errMsg || '网络连接失败', path }
+        uni.setStorageSync('lastNetworkIssue', error)
+        reject(error)
+      }
+    })
+  })
+}
+
+export function del(path, requireAuth = true) {
+  return new Promise((resolve, reject) => {
+    const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+    uni.request({
+      url: `${API_BASE_URL}${path}`,
+      method: 'DELETE',
+      timeout: 30000,
+      header: { 'X-Request-Id': requestId, ...(requireAuth ? authHeader() : {}) },
       success(res) {
         const body = res.data || {}
         if (res.statusCode === 200 && body.code === 200) {
@@ -134,7 +248,7 @@ export function request(path, data = {}) {
   })
 }
 
-export function upload(path, filePath, formData = {}) {
+export function upload(path, filePath, formData = {}, requireAuth = true) {
   return new Promise((resolve, reject) => {
     const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
     uni.uploadFile({
@@ -143,7 +257,7 @@ export function upload(path, filePath, formData = {}) {
       name: 'file',
       formData,
       timeout: 120000,
-      header: { 'X-Request-Id': requestId },
+      header: { 'X-Request-Id': requestId, ...(requireAuth ? authHeader() : {}) },
       success(res) {
         let body = {}
         try {
@@ -238,7 +352,27 @@ export async function getAiSettings() {
 }
 
 export async function analyzeImage(providerCode, filePath) {
-  return upload('/mini/ai/analyze-image', filePath, { providerCode })
+  await ensureLogin()
+  return upload('/mini/ai/analyze-image', filePath, { providerCode }, true)
+}
+
+export async function confirmAiImageTask(taskId, body) {
+  await ensureLogin()
+  return post(`/mini/ai/image-tasks/${taskId}/confirm`, body, true)
+}
+
+export async function getAiUsage() {
+  await ensureLogin()
+  return request('/mini/me/ai-usage', {}, true)
+}
+
+export async function recordBehavior(eventType, targetType = '', targetId = '', pagePath = '', detail = '') {
+  if (!getToken()) return
+  try {
+    await post('/mini/me/events', { eventType, targetType, targetId: String(targetId || ''), pagePath, detail }, true)
+  } catch (error) {
+    console.warn('[behavior-event-failed]', error)
+  }
 }
 
 export async function getCategories() {
@@ -269,14 +403,23 @@ export async function getItem(id) {
   }
 }
 
-export function getFavorites() {
-  return uni.getStorageSync('favoriteItems') || []
+export async function getFavorites() {
+  await ensureLogin()
+  return request('/mini/me/favorites', {}, true)
 }
 
-export function toggleFavorite(item) {
-  const list = getFavorites()
-  const exists = list.some((saved) => saved.id === item.id)
-  const next = exists ? list.filter((saved) => saved.id !== item.id) : [item, ...list]
-  uni.setStorageSync('favoriteItems', next)
-  return !exists
+export async function isFavorited(itemId) {
+  const list = await getFavorites()
+  return list.some((saved) => saved.id === itemId)
+}
+
+export async function toggleFavorite(item) {
+  await ensureLogin()
+  const exists = await isFavorited(item.id)
+  if (exists) {
+    await del(`/mini/me/favorites/${item.id}`, true)
+    return false
+  }
+  await post(`/mini/me/favorites/${item.id}`, {}, true)
+  return true
 }

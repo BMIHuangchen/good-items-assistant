@@ -1,11 +1,11 @@
 # 项目功能与当前状态
 
-更新时间：2026-06-11  
+更新时间：2026-06-14
 项目定位：好物展示小助手，面向微信小程序审核与正式上线的个人生活好物内容展示项目。
 
 ## 一句话结论
 
-备案完成后，`https://zanzanai.top` 的正式 HTTPS 入口已经恢复可用。当前后端公开 API、数据库、COS 图片、后台管理和小程序数据接口已完成线上联通验证，项目进入“微信合法域名配置 + 小程序体验版验证”的阶段。
+备案完成后，`https://zanzanai.top` 的正式 HTTPS 入口已经恢复可用。当前稳定主线的后端公开 API、数据库、COS 图片、后台管理和小程序数据接口已完成线上联通验证；`codex/user-ai-usage-analytics` 分支已完成第一版小程序微信静默登录、服务端收藏、Kimi/豆包 AI 识图选择、用户 AI Token/费用估算和后台用户/数据看板开发，并已在 2026-06-14 灰度部署到云服务器。服务器已配置微信小程序 AppID/AppSecret，下一步是上传小程序体验版并进行真机验证。
 
 ## 当前功能
 
@@ -15,8 +15,9 @@
 - 分类：按内容分类浏览；左侧分类、右侧卡片内容由后台“分类”和“好物内容”管理。
 - 搜索：按关键词查找内容；搜索提示语和热词由后台“小程序页面”配置管理。
 - 详情：展示好物图文、体验心得、标签和图片。
-- 收藏：本地收藏，不涉及交易、下单、支付。
-- 我的：展示项目说明、网络排查信息和本地状态；项目说明由后台“小程序页面”配置管理。
+- 收藏：登录后服务端收藏，不涉及交易、下单、支付。
+- AI 图片分析：登录后可选择 Kimi 或豆包大模型识图，Token 和费用按模型返回 usage 与后台单价估算。
+- 我的：展示项目说明、网络排查信息、登录状态和个人 AI Token/估算费用；项目说明由后台“小程序页面”配置管理。
 - 兜底状态：接口异常时保留错误提示和排查信息；正式验证时不应显示“已启用本地兜底”。
 
 ### 后端 API
@@ -24,6 +25,8 @@
 - 公开内容接口：Banner、分类、内容列表、内容详情、COS 配置。
 - 小程序页面配置接口：首页文案、精选标题、搜索提示语、搜索热词、我的页说明。
 - 管理接口：后台登录、当前用户、看板、内容、分类、Banner 管理。
+- 用户接口：小程序微信静默登录、服务端收藏、用户行为事件、个人 AI 用量。
+- 后台统计接口：用户列表、用户 AI Token/估算费用、登录/行为/AI 使用统计看板。
 - 诊断接口：`/api/diagnostics/ready` 检查数据库、公开域名、COS 配置。
 - 统一响应：所有接口包含 `requestId`，便于快速排查。
 - 日志：请求日志包含方法、路径、状态、耗时、来源和 UA。
@@ -38,6 +41,8 @@
 - 小程序页面：维护首页、搜索页和我的页的可配置文案。
 - 上线诊断：辅助确认接口、数据库和 COS 状态。
 - 角色把控：展示产品、后端、前端、运维、审核等职责。
+- 用户管理：查看小程序用户注册登录情况和每个用户 AI Token/费用估算。
+- 数据看板：查看登录趋势、活跃用户、功能使用、模型使用、AI 调用趋势和内容热度。
 
 ### 数据库
 
@@ -49,6 +54,16 @@
 - `content_items`
 - `content_banners`
 - `operation_audit_logs`
+- `mini_users`
+- `user_login_events`
+- `user_behavior_events`
+- `user_favorites`
+- `media_assets`
+- `ai_feature_settings`
+- `ai_model_configs`
+- `ai_prompt_templates`
+- `ai_image_analysis_tasks`
+- `ai_call_logs`
 
 数据库只保留内容展示需要的结构，不包含交易、订单、支付、库存等经营性能力。
 
@@ -85,6 +100,7 @@
 - 2026-06-11 体验版验证：后台修改好物内容后，体验版小程序前端同步显示正常。
 - 2026-06-13 服务器复查：`good-items-api.service` 运行中，生产数据库连接指向本机 MariaDB，当前表包括 `content_categories`、`content_items`、`content_banners`、`mini_program_config`、`operation_audit_logs`。
 - 2026-06-13 线上数据库统计：`content_categories=9`、`content_items=9`、`content_banners=3`、`mini_program_config=1`、`operation_audit_logs=0`，库大小约 `0.17MB`。
+- 2026-06-14 本地构建验证：用户 AI 用量分支后端 Maven 构建成功，后台 Vite/TypeScript 构建成功。
 
 ## 待处理事项
 
@@ -95,6 +111,9 @@
 - 上传体验版后，需要在真机确认：首页不显示“已启用本地兜底”，分类为 7 个，好物内容为 7 条，且“笔记本小小台灯”“迷你清洁喷瓶”等后台内容可见。
 - 新项目目录 `D:\cursor\codex\good-items-assistant` 已剥离旧原型目录 `High-Fidelity E-Commerce App` 和 `ui-figma`，后续以该目录作为干净主线。
 - `www.zanzanai.top` 当前证书覆盖情况仍建议后续确认；正式主域 `zanzanai.top` 已可用。
+- 用户 AI 用量分支上线前必须先备份生产数据库，并执行 `database/migration_user_ai_usage_20260614.sql`。
+- 用户 AI 用量分支上线前必须在 `/etc/good-items-api.env` 配置 `WECHAT_MINI_APP_ID`、`WECHAT_MINI_APP_SECRET`、`MINI_JWT_SECRET`。
+- 用户 AI 用量分支上传体验版后，需要真机确认静默登录、服务端收藏、Kimi/豆包模型选择、用户自确认 AI 结果、我的页用量和后台用户/数据看板。
 
 ## 快速判断
 

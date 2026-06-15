@@ -93,6 +93,13 @@ public class ContentRepository {
         return item;
     }
 
+    public GoodItem publicItemWithoutViewIncrement(Long id) {
+        return jdbc.query(baseItemSql() + " where i.id = ? and i.status = 'PUBLISHED' and c.enabled = 1", itemMapper(), id)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new ApiException(404, "内容不存在或未发布"));
+    }
+
     public PageResult<GoodItem> adminItems(String status, int pageNum, int pageSize) {
         String where = status == null || status.isBlank() ? "" : " where i.status = ?";
         long total = where.isEmpty()
@@ -207,6 +214,10 @@ public class ContentRepository {
                 """);
         return new DashboardStats(num(row, "published_items"), num(row, "draft_items"), num(row, "categories"),
                 num(row, "banners"), num(row, "total_views"), num(row, "total_favorites"));
+    }
+
+    public RowMapper<GoodItem> itemRowMapper() {
+        return itemMapper();
     }
 
     private String baseItemSql() {

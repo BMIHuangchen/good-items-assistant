@@ -83,6 +83,82 @@ create table if not exists operation_audit_logs (
   index idx_audit_created_at (created_at)
 );
 
+create table if not exists compute_tiers (
+  tier_code varchar(20) primary key,
+  tier_name varchar(40) not null,
+  daily_token_limit bigint not null default 0,
+  monthly_token_limit bigint not null default 0,
+  daily_call_limit int not null default 0,
+  enabled tinyint(1) not null default 1,
+  sort_order int not null default 0,
+  updated_at datetime not null default current_timestamp on update current_timestamp
+);
+
+insert ignore into compute_tiers(tier_code, tier_name, daily_token_limit, monthly_token_limit, daily_call_limit, enabled, sort_order)
+values
+('LEVEL_1','一级会员',50000,1000000,20,1,10),
+('LEVEL_2','二级会员',200000,5000000,80,1,20),
+('LEVEL_3','三级会员',1000000,20000000,300,1,30);
+
+create table if not exists mini_users (
+  id bigint primary key auto_increment,
+  openid varchar(120) not null unique,
+  unionid varchar(120),
+  nickname varchar(120),
+  avatar_url varchar(800),
+  status varchar(30) not null default 'ACTIVE',
+  tier_code varchar(20) not null default 'LEVEL_1',
+  custom_daily_token_limit bigint null,
+  custom_monthly_token_limit bigint null,
+  custom_daily_call_limit int null,
+  login_count int not null default 0,
+  first_login_at datetime,
+  last_login_at datetime,
+  created_at datetime not null default current_timestamp,
+  updated_at datetime not null default current_timestamp on update current_timestamp,
+  index idx_mini_users_last_login (last_login_at),
+  index idx_mini_users_status (status),
+  index idx_mini_users_tier (tier_code)
+);
+
+create table if not exists user_login_events (
+  id bigint primary key auto_increment,
+  user_id bigint not null,
+  openid varchar(120) not null,
+  request_id varchar(80),
+  created_at datetime not null default current_timestamp,
+  constraint fk_login_events_user foreign key (user_id) references mini_users(id),
+  index idx_login_events_user_created (user_id, created_at),
+  index idx_login_events_created (created_at)
+);
+
+create table if not exists user_behavior_events (
+  id bigint primary key auto_increment,
+  user_id bigint not null,
+  event_type varchar(80) not null,
+  target_type varchar(80),
+  target_id varchar(120),
+  page_path varchar(255),
+  detail varchar(500),
+  request_id varchar(80),
+  created_at datetime not null default current_timestamp,
+  constraint fk_behavior_events_user foreign key (user_id) references mini_users(id),
+  index idx_behavior_events_user_created (user_id, created_at),
+  index idx_behavior_events_type_created (event_type, created_at),
+  index idx_behavior_events_created (created_at)
+);
+
+create table if not exists user_favorites (
+  id bigint primary key auto_increment,
+  user_id bigint not null,
+  item_id bigint not null,
+  created_at datetime not null default current_timestamp,
+  constraint fk_user_favorites_user foreign key (user_id) references mini_users(id),
+  constraint fk_user_favorites_item foreign key (item_id) references content_items(id),
+  unique key uk_user_favorites_user_item (user_id, item_id),
+  index idx_user_favorites_created (created_at)
+);
+
 create table if not exists media_assets (
   id bigint primary key auto_increment,
   source varchar(40) not null default 'MINI_AI_UPLOAD',
@@ -137,6 +213,7 @@ create table if not exists ai_prompt_templates (
 create table if not exists ai_image_analysis_tasks (
   id bigint primary key auto_increment,
   request_id varchar(80) not null,
+  user_id bigint,
   media_asset_id bigint not null,
   provider_code varchar(40) not null,
   model_name varchar(120) not null,
@@ -159,7 +236,9 @@ create table if not exists ai_image_analysis_tasks (
   created_item_id bigint,
   created_at datetime not null default current_timestamp,
   updated_at datetime not null default current_timestamp on update current_timestamp,
+  constraint fk_ai_image_tasks_user foreign key (user_id) references mini_users(id),
   constraint fk_ai_image_tasks_media foreign key (media_asset_id) references media_assets(id),
+  index idx_ai_image_tasks_user_created (user_id, created_at),
   index idx_ai_image_tasks_status_created (status, created_at),
   index idx_ai_image_tasks_request_id (request_id)
 );
@@ -167,6 +246,7 @@ create table if not exists ai_image_analysis_tasks (
 create table if not exists ai_call_logs (
   id bigint primary key auto_increment,
   request_id varchar(80) not null,
+  user_id bigint,
   provider_code varchar(40) not null,
   model_name varchar(120) not null,
   scenario varchar(80) not null,
@@ -179,6 +259,8 @@ create table if not exists ai_call_logs (
   error_message varchar(500),
   task_id bigint,
   created_at datetime not null default current_timestamp,
+  constraint fk_ai_call_logs_user foreign key (user_id) references mini_users(id),
+  index idx_ai_call_logs_user_created (user_id, created_at),
   index idx_ai_call_logs_created (created_at),
   index idx_ai_call_logs_provider_created (provider_code, created_at),
   index idx_ai_call_logs_request_id (request_id)

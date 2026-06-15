@@ -47,6 +47,11 @@ app:
   ai:
     kimi-api-key: ${KIMI_API_KEY:}
     doubao-api-key: ${DOUBAO_API_KEY:}
+  mini-program:
+    app-id: ${WECHAT_MINI_APP_ID:}
+    app-secret: ${WECHAT_MINI_APP_SECRET:}
+    jwt-secret: ${MINI_JWT_SECRET:${JWT_SECRET:replace-this-with-a-strong-secret-at-least-32-chars}}
+    token-expire-days: ${MINI_TOKEN_EXPIRE_DAYS:30}
   diagnostics:
     slow-request-ms: ${SLOW_REQUEST_MS:1200}
 
