@@ -12,14 +12,16 @@
       <text v-if="user" class="desc">用户 ID：{{ user.id }}；登录次数：{{ user.loginCount || 0 }}</text>
       <text v-if="user?.lastLoginAt" class="desc">最近登录：{{ user.lastLoginAt }}</text>
       <text v-if="loginErrorText" class="desc">登录提示：{{ loginErrorText }}</text>
-      <button @click="loginAgain">重新登录</button>
+      <button v-if="!user" @click="loginAgain">微信登录</button>
+      <button v-if="user" @click="loginAgain">重新登录</button>
+      <button v-if="user" class="secondary-button" @click="logoutMiniUser">退出登录</button>
     </view>
-    <view v-if="aiEnabled" class="panel">
+    <view v-if="aiEnabled && user" class="panel">
       <text class="label">AI 图片分析</text>
       <text class="desc">上传生活好物图片，可在 Kimi 和豆包两个大模型入口中选择。Token 和费用为按模型单价估算。</text>
       <button @click="openAiImage">打开 AI 图片分析</button>
     </view>
-    <view v-if="aiEnabled" class="panel">
+    <view v-if="aiEnabled && user" class="panel">
       <text class="label">我的 AI 用量</text>
       <view class="usage-grid">
         <view>
@@ -60,6 +62,7 @@ const usage = ref({})
 const user = ref(null)
 const loginErrorText = ref('')
 const loggingIn = ref(false)
+const manualLogoutKey = 'miniManualLogout'
 
 const loginStatus = computed(() => {
   if (loggingIn.value) return '登录中'
@@ -68,19 +71,20 @@ const loginStatus = computed(() => {
 
 async function loadProfile() {
   user.value = getCurrentUser()
-  if (!user.value) {
+  if (!user.value && !uni.getStorageSync(manualLogoutKey)) {
     await loginNow()
   }
   config.value = await getMiniConfig()
   const aiSettings = await getAiSettings()
   aiEnabled.value = !!aiSettings.aiEnabled
-  usage.value = aiEnabled.value ? await getAiUsage().catch(() => ({})) : {}
+  usage.value = aiEnabled.value && user.value ? await getAiUsage().catch(() => ({})) : {}
 }
 
 async function loginNow() {
   loggingIn.value = true
   loginErrorText.value = ''
   try {
+    uni.removeStorageSync(manualLogoutKey)
     user.value = await ensureLogin()
   } catch (error) {
     user.value = null
@@ -93,12 +97,22 @@ async function loginNow() {
 
 async function loginAgain() {
   clearLogin()
+  uni.removeStorageSync(manualLogoutKey)
   user.value = null
   usage.value = {}
   await loginNow()
   if (user.value && aiEnabled.value) {
     usage.value = await getAiUsage().catch(() => ({}))
   }
+}
+
+function logoutMiniUser() {
+  clearLogin()
+  uni.setStorageSync(manualLogoutKey, '1')
+  user.value = null
+  usage.value = {}
+  loginErrorText.value = ''
+  uni.showToast({ title: '已退出登录', icon: 'none' })
 }
 
 onLoad(loadProfile)
@@ -138,6 +152,7 @@ function userIdentity(currentUser) {
 .status { display: inline-block; margin-top: 16rpx; padding: 8rpx 18rpx; border-radius: 999rpx; background: #f1f3ef; color: #65736d; font-size: 24rpx; }
 .status.ok { background: #e6f2ea; color: #2f6b4f; font-weight: 700; }
 button { margin-top: 24rpx; background: #2f6b4f; color: #fff; border-radius: 12rpx; }
+.secondary-button { background: #eef2ef; color: #2f6b4f; border: 1rpx solid #cfd8d2; }
 .usage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14rpx; margin-top: 18rpx; }
 .usage-grid view { background: #f6f7f4; border-radius: 12rpx; padding: 16rpx; min-width: 0; }
 .metric { display: block; font-size: 30rpx; font-weight: 800; color: #2f6b4f; word-break: break-all; }
