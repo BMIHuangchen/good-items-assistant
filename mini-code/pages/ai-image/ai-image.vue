@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view v-if="aiEnabled" class="page">
     <view class="panel">
       <text class="title">AI 图片分析</text>
       <text class="desc">选择 Kimi 或豆包上传生活好物图片，分析通常需要 20-60 秒，完成后可自行确认生成内容、新建分类并公开展示。</text>
@@ -69,6 +69,7 @@ import { analyzeImage, confirmAiImageTask, ensureLogin, getAiSettings, getAiUsag
 const models = ref([])
 const categories = ref([])
 const modelUsages = ref([])
+const aiEnabled = ref(false)
 const providerCode = ref('')
 const imagePath = ref('')
 const result = ref(null)
@@ -84,10 +85,10 @@ onLoad(async () => {
   await ensureLogin()
   const settings = await getAiSettings()
   if (!settings.aiEnabled) {
-    uni.showToast({ title: 'AI 功能暂未开启', icon: 'none' })
     setTimeout(() => uni.navigateBack(), 800)
     return
   }
+  aiEnabled.value = true
   models.value = settings.models || []
   providerCode.value = models.value[0]?.providerCode || ''
   categories.value = await getCategories()

@@ -19,7 +19,7 @@
       <text class="desc">上传生活好物图片，可在 Kimi 和豆包两个大模型入口中选择。Token 和费用为按模型单价估算。</text>
       <button @click="openAiImage">打开 AI 图片分析</button>
     </view>
-    <view class="panel">
+    <view v-if="aiEnabled" class="panel">
       <text class="label">我的 AI 用量</text>
       <view class="usage-grid">
         <view>
@@ -74,7 +74,7 @@ async function loadProfile() {
   config.value = await getMiniConfig()
   const aiSettings = await getAiSettings()
   aiEnabled.value = !!aiSettings.aiEnabled
-  usage.value = await getAiUsage().catch(() => ({}))
+  usage.value = aiEnabled.value ? await getAiUsage().catch(() => ({})) : {}
 }
 
 async function loginNow() {
@@ -96,7 +96,7 @@ async function loginAgain() {
   user.value = null
   usage.value = {}
   await loginNow()
-  if (user.value) {
+  if (user.value && aiEnabled.value) {
     usage.value = await getAiUsage().catch(() => ({}))
   }
 }

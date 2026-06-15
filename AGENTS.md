@@ -90,6 +90,7 @@
 - AI 图片分析调用前应先校验平台总日调用上限，再校验用户会员等级/自定义额度；Token 上限基于调用前已消耗量预检查，单次调用的最终 Token 以模型返回 `usage` 入库后计入。
 - 上线本次算力会员能力前必须先备份线上数据库，再执行 `database/migration_compute_tiers_20260615.sql`，之后重新部署后端 jar 和后台 dist。
 - 2026-06-15 三级会员算力额度与后台 ECharts 驾驶舱已部署到腾讯云：线上数据库已备份到 `/root/good-items-backups/good_items_assistant_before_compute_20260615_003041.sql`，已执行 `migration_compute_tiers_20260615.sql`，后端 jar 与后台 dist 已替换，公网 `https://zanzanai.top/api/diagnostics/ready` 返回 200，后台新增会员等级、用户 AI 用量、数据看板算力字段验证通过。
+- 2026-06-15 审核开关规则：后台 AI 功能总开关关闭时，小程序前端不得显示任何 AI 相关入口、文案、模型选择、Token/费用/算力用量或跳转提示；只有总开关开启后才可显示小程序 AI 图片分析和“我的 AI 用量”。
 
 ## 标准化开发流程
 
